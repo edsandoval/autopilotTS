@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutopilotTS - Ticket Management</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="stylesheet" href="styles.css">
+  <!-- xterm.js for terminal emulation -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <div class="logo-container">
+          <img src="logo.svg" alt="AutopilotTS Logo" class="logo-icon">
+          <div>
+            <h1 class="logo">AutopilotTS</h1>
+            <p class="subtitle">Powered by GitHub Copilot CLI</p>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-autopilot" onclick="app.showAutopilotModal()" id="autopilotBtn">
+          🚀 Autopilot Mode
+        </button>
+        <button class="btn btn-secondary" onclick="app.showConfigModal()">⚙️ Config</button>
+        <button class="btn btn-primary" onclick="app.showCreateModal()">➕ New Ticket</button>
+      </div>
+    </header>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="statusBar">
+      <span class="status-text">Ready</span>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Filters -->
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all" onclick="app.filterTickets('all')">All</button>
+        <button class="filter-btn" data-filter="pending" onclick="app.filterTickets('pending')">Pending</button>
+        <button class="filter-btn" data-filter="working" onclick="app.filterTickets('working')">Working</button>
+        <button class="filter-btn" data-filter="stopped" onclick="app.filterTickets('stopped')">Stopped</button>
+        <button class="filter-btn" data-filter="closed" onclick="app.filterTickets('closed')">Closed</button>
+      </div>
+
+      <!-- Tickets Grid -->
+      <div class="tickets-grid" id="ticketsGrid">
+        <div class="loading">Loading tickets...</div>
+      </div>
+    </main>
+
+    <!-- Terminal Footer (Always Visible) -->
+    <div class="terminal-footer" id="terminalFooter">
+      <div class="terminal-header">
+        <div class="terminal-title">
+          <span class="terminal-icon">▶</span>
+          <span>Terminal Output</span>
+        </div>
+        <div class="terminal-actions">
+          <button class="terminal-toggle-btn" onclick="app.toggleTerminalFooter()" title="Minimizar terminal">▼</button>
+        </div>
+      </div>
+      <div class="terminal-body" id="terminalBody">
+        <div id="terminal"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Ticket Modal -->
+  <div class="modal" id="createModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Create New Ticket</h2>
+        <button class="close-btn" onclick="app.hideCreateModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="createForm" onsubmit="app.createTicket(event)">
+          <div class="form-group">
+            <label for="ticketName">Ticket Name</label>
+            <input type="text" id="ticketName" required placeholder="e.g., Add login feature">
+          </div>
+          <div class="form-group">
+            <label for="ticketDescription">Description</label>
+            <textarea id="ticketDescription" required rows="6" 
+              placeholder="Describe the ticket in detail..."></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="app.hideCreateModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Ticket</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config Modal -->
+  <div class="modal" id="configModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Configuration</h2>
+        <button class="close-btn" onclick="app.hideConfigModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="configForm">
+          <div class="form-group">
+            <label for="baseRepositoryPath">Base Repository Path</label>
+            <input type="text" id="baseRepositoryPath" placeholder="Base repository folder path">
+          </div>
+          <div class="form-group">
+            <label for="automationPath">Automation Path</label>
+            <input type="text" id="automationPath" placeholder="Automation folder path">
+          </div>
+          <div class="form-group">
+            <label for="baseBranch">Base Branch</label>
+            <input type="text" id="baseBranch" placeholder="develop">
+          </div>
+          <div class="form-group">
+            <label for="copilotModel">Copilot Model</label>
+            <select id="copilotModel" class="model-select">
+              <option value="">Loading models...</option>
+            </select>
+            <button type="button" class="btn-refresh-models" onclick="app.refreshModels()" title="Refresh models list">
+              🔄 Refresh
+            </button>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="debugMode">
+              Enable Debug Mode
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="app.hideConfigModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Config</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logs Modal -->
+  <div class="modal" id="logsModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Ticket Logs</h2>
+        <button class="close-btn" onclick="app.hideLogsModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="logs-container" id="logsContainer">
+          <div class="log-entry">Waiting for logs...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Modal -->
+  <div class="modal" id="summaryModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Resumen del Ticket <span id="summaryTicketId"></span></h2>
+        <button class="close-btn" onclick="app.hideSummaryModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="summary-container" id="summaryContainer">
+          <div class="loading">Cargando resumen...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Autopilot Confirm Modal -->
+  <div class="modal" id="autopilotConfirmModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🚀 Iniciar Modo Autopilot</h2>
+        <button class="close-btn" onclick="app.hideAutopilotModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="autopilot-preview">
+          <p><strong>Se procesarán los siguientes tickets en orden:</strong></p>
+          <div id="autopilotTicketsList" class="autopilot-tickets-list">
+            <!-- Populated by JS -->
+          </div>
+          <p class="autopilot-warning">
+            ⚠️ <strong>Importante:</strong> Los tickets se resolverán uno a la vez usando Copilot CLI.
+            Esto puede tomar varios minutos dependiendo de la complejidad.
+          </p>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.hideAutopilotModal()">Cancelar</button>
+          <button type="button" class="btn btn-success" onclick="app.startAutopilot()">🚀 Iniciar Autopilot</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Autopilot Progress Modal -->
+  <div class="modal" id="autopilotProgressModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>⚙️ Autopilot en Ejecución</h2>
+        <button class="close-btn" onclick="app.stopAutopilot()" title="Detener después del ticket actual">⏸️</button>
+      </div>
+      <div class="modal-body">
+        <div class="autopilot-progress">
+          <div class="progress-info">
+            <span id="progressText">Procesando ticket 1 de 5...</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+          </div>
+          <div class="current-ticket-info">
+            <h3>Ticket Actual:</h3>
+            <div id="currentTicketInfo" class="ticket-info-box">
+              <div class="ticket-id">TASK-001</div>
+              <div class="ticket-name">Cargando...</div>
+            </div>
+          </div>
+          <div class="autopilot-actions">
+            <button class="btn btn-warning" onclick="app.stopAutopilot()">⏸️ Detener Autopilot</button>
+          </div>
+          <!-- Terminal in Autopilot Modal -->
+          <div class="autopilot-terminal-container">
+            <div class="terminal-header-modal">
+              <span class="terminal-icon">▶</span>
+              <span>Live Terminal Output</span>
+            </div>
+            <div id="terminalAutopilot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Autopilot Summary Modal -->
+  <div class="modal" id="autopilotSummaryModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>✅ Autopilot Finalizado</h2>
+        <button class="close-btn" onclick="app.hideAutopilotSummary()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="autopilot-summary-content" id="autopilotSummaryContent">
+          <!-- Populated by JS -->
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" onclick="app.hideAutopilotSummary()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Ticket Modal -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Ticket</h2>
+        <button class="close-btn" onclick="app.hideEditModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="editForm" onsubmit="app.updateTicket(event)">
+          <div class="form-group">
+            <label for="editTicketId">Ticket ID</label>
+            <input type="text" id="editTicketId" readonly disabled 
+              style="background-color: #f0f0f0; cursor: not-allowed;">
+          </div>
+          <div class="form-group">
+            <label for="editTicketDescription">Description</label>
+            <textarea id="editTicketDescription" required rows="6" 
+              placeholder="Update the ticket description..."></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="app.hideEditModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

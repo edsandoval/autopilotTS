@@ -1,0 +1,54 @@
+{
+  "name": "autopilotts",
+  "version": "1.0.0",
+  "description": "AI-Powered Ticket Resolution System for Terminal",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "autopilot": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc && copyfiles -u 1 \"src/web/public/**/*\" dist",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "watch": "tsc -w",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "cli",
+    "tickets",
+    "ai",
+    "copilot"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@github/copilot-sdk": "^0.1.18",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/ws": "^8.18.1",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.3",
+    "commander": "^11.1.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "fast-glob": "^3.3.3",
+    "figlet": "^1.7.0",
+    "inquirer": "^8.2.5",
+    "open": "^11.0.0",
+    "simple-git": "^3.22.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/figlet": "^1.5.8",
+    "@types/inquirer": "^8.2.10",
+    "@types/node": "^20.19.30",
+    "@vitest/ui": "^4.0.18",
+    "copyfiles": "^2.4.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
+  }
+}

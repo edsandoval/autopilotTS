@@ -45,6 +45,10 @@ router.post('/', async (req: Request, res: Response) => {
       ConfigManager.setBaseBranch(value || 'develop');
     } else if (key === 'copilotModel') {
       ConfigManager.setCopilotModel(value || 'gpt-4o');
+    } else if (key === 'ticketCommandPrompt') {
+      ConfigManager.setTicketCommandPrompt(value || '');
+    } else if (key === 'ticketResolutionPrompt') {
+      ConfigManager.setTicketResolutionPrompt(value || '');
     } else {
       return res.status(400).json({ 
         success: false, 

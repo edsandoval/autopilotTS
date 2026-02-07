@@ -287,6 +287,8 @@ class AutopilotApp {
       document.getElementById('automationPath').value = config.automationPath || '';
       document.getElementById('baseBranch').value = config.baseBranch || 'develop';
       document.getElementById('debugMode').checked = config.debug || false;
+      document.getElementById('ticketCommandPrompt').value = config.ticketCommandPrompt || '';
+      document.getElementById('ticketResolutionPrompt').value = config.ticketResolutionPrompt || '';
       
       // Set model dropdown value if models are already loaded
       const modelSelect = document.getElementById('copilotModel');
@@ -308,6 +310,8 @@ class AutopilotApp {
     const baseBranch = document.getElementById('baseBranch').value;
     const copilotModel = document.getElementById('copilotModel').value;
     const debug = document.getElementById('debugMode').checked;
+    const ticketCommandPrompt = document.getElementById('ticketCommandPrompt').value;
+    const ticketResolutionPrompt = document.getElementById('ticketResolutionPrompt').value;
     
     try {
       this.updateStatus('Saving configuration...');
@@ -340,6 +344,16 @@ class AutopilotApp {
       await this.apiCall('/config', {
         method: 'POST',
         body: JSON.stringify({ key: 'debug', value: debug ? 'on' : 'off' })
+      });
+      
+      await this.apiCall('/config', {
+        method: 'POST',
+        body: JSON.stringify({ key: 'ticketCommandPrompt', value: ticketCommandPrompt })
+      });
+      
+      await this.apiCall('/config', {
+        method: 'POST',
+        body: JSON.stringify({ key: 'ticketResolutionPrompt', value: ticketResolutionPrompt })
       });
       
       this.hideConfigModal();

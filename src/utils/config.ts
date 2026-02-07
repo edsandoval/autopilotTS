@@ -30,7 +30,24 @@ export class ConfigManager {
         baseRepositoryPath: undefined,
         automationPath: undefined,
         baseBranch: 'develop',
-        copilotModel: 'gpt-4o'
+        copilotModel: 'gpt-4o',
+        ticketCommandPrompt: 'Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementacion que lo resuelva, Archivo -> ${FILE}',
+        ticketResolutionPrompt: `You are working on a repository.
+
+Corrige el siguiente issue en el código.
+
+**Identificador del issue:**
+\${ID}
+**Descripción del issue:**
+\${DESCRIPTION}
+
+**Reglas:**
+- Solo modificar lo necesario
+- No refactorizar código no relacionado
+- No cambiar dependencias
+- No hacer operaciones de git
+- Mantener cambios mínimos
+- Aplicar cambios directamente al código`
       };
       
       fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2));
@@ -121,5 +138,42 @@ export class ConfigManager {
 
   static getConfigPath(): string {
     return getAutopilotDir();
+  }
+
+  static getTicketCommandPrompt(): string {
+    const config = this.getConfig();
+    return config.ticketCommandPrompt || 'Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementacion que lo resuelva, Archivo -> ${FILE}';
+  }
+
+  static setTicketCommandPrompt(prompt: string): void {
+    const config = this.getConfig();
+    config.ticketCommandPrompt = prompt;
+    this.saveConfig(config);
+  }
+
+  static getTicketResolutionPrompt(): string {
+    const config = this.getConfig();
+    return config.ticketResolutionPrompt || `You are working on a repository.
+
+Corrige el siguiente issue en el código.
+
+**Identificador del issue:**
+\${ID}
+**Descripción del issue:**
+\${DESCRIPTION}
+
+**Reglas:**
+- Solo modificar lo necesario
+- No refactorizar código no relacionado
+- No cambiar dependencias
+- No hacer operaciones de git
+- Mantener cambios mínimos
+- Aplicar cambios directamente al código`;
+  }
+
+  static setTicketResolutionPrompt(prompt: string): void {
+    const config = this.getConfig();
+    config.ticketResolutionPrompt = prompt;
+    this.saveConfig(config);
   }
 }

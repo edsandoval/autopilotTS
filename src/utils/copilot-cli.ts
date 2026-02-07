@@ -4,6 +4,7 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { Ticket } from '../types/index.js';
+import { ConfigManager } from './config.js';
 
 export interface CopilotCLIOptions {
   allowAll?: boolean;
@@ -76,23 +77,10 @@ export class CopilotCLI {
    * Build prompt for ticket resolution
    */
   static buildPrompt(ticket: Ticket): string {
-    return `You are working on a repository.
-
-Corrige el siguiente issue en el código.
-
-**Identificador del issue:**
-${ticket.id}
-**Descripción del issue:**
-${ticket.description}
-
-**Reglas:**
-- Solo modificar lo necesario
-- No refactorizar código no relacionado
-- No cambiar dependencias
-- No hacer operaciones de git
-- Mantener cambios mínimos
-- Aplicar cambios directamente al código
-`;
+    const template = ConfigManager.getTicketResolutionPrompt();
+    return template
+      .replace(/\$\{ID\}/g, ticket.id)
+      .replace(/\$\{DESCRIPTION\}/g, ticket.description);
   }
 
   /**
@@ -125,8 +113,12 @@ ${ticket.description}
     // Save prompt to file
     const promptFile = this.savePromptToFile(prompt, ticketId);
 
+    // Get command prompt template from configuration and replace placeholder
+    const commandTemplate = ConfigManager.getTicketCommandPrompt();
+    const commandPrompt = commandTemplate.replace(/\$\{FILE\}/g, `@${promptFile}`);
+
     // Build command using @ syntax for file reference
-    const command = `copilot -p "Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementacion que lo resuelva, Archivo -> @${promptFile}" ${flags.join(' ')}`;
+    const command = `copilot -p "${commandPrompt}" ${flags.join(' ')}`;
 
     // DEBUG: Show complete command
     console.log(chalk.yellow('📝 Command to execute:'));

@@ -631,6 +631,8 @@ Be specific and actionable. Focus on practical steps.`;
       const automationPath = ConfigManager.getAutomationPath();
       const baseBranch = ConfigManager.getBaseBranch();
       const copilotModel = ConfigManager.getCopilotModel();
+      const ticketCommandPrompt = ConfigManager.getTicketCommandPrompt();
+      const ticketResolutionPrompt = ConfigManager.getTicketResolutionPrompt();
       
       console.log();
       console.log(chalk.cyan.bold('📁 Autopilot Configuration'));
@@ -641,6 +643,8 @@ Be specific and actionable. Focus on practical steps.`;
       console.log(chalk.white('Base Branch: ') + chalk.green(baseBranch));
       console.log(chalk.white('Copilot Model: ') + chalk.green(copilotModel));
       console.log(chalk.white('Debug Mode: ') + (debugEnabled ? chalk.green('Enabled') : chalk.gray('Disabled')));
+      console.log(chalk.white('Ticket Command Prompt: ') + chalk.gray(ticketCommandPrompt.substring(0, 60) + '...'));
+      console.log(chalk.white('Ticket Resolution Prompt: ') + chalk.gray(ticketResolutionPrompt.substring(0, 60) + '...'));
       console.log();
       
       Display.info('Use "config base-repo <path>" to set base repository path');
@@ -648,6 +652,8 @@ Be specific and actionable. Focus on practical steps.`;
       Display.info('Use "config branch <name>" to set base branch (default: develop)');
       Display.info('Use "config model <name>" to set copilot model (default: gpt-4o)');
       Display.info('Use "config debug on/off" to enable/disable debug mode');
+      Display.info('Use "config ticket-command-prompt <prompt>" to set ticket command prompt');
+      Display.info('Use "config ticket-resolution-prompt <prompt>" to set ticket resolution prompt');
       
       return;
     }
@@ -728,7 +734,36 @@ Be specific and actionable. Focus on practical steps.`;
       return;
     }
 
-    Display.error(`Unknown config action: ${action}. Use "config", "config base-repo <path>", "config automation <path>", "config branch <name>", "config model <name>", or "config debug on/off"`);
+    if (action.toLowerCase() === 'ticket-command-prompt') {
+      if (!value) {
+        Display.error('Please provide a prompt: config ticket-command-prompt <prompt>');
+        Display.info('Example: config ticket-command-prompt "Act as a senior developer. Analyze the software ticket in the following file and provide an implementation that resolves it, File -> ${FILE}"');
+        Display.info('Available placeholder: ${FILE}');
+        return;
+      }
+
+      ConfigManager.setTicketCommandPrompt(value);
+      Display.success('Ticket Command Prompt configured successfully');
+      Display.info('This prompt will be used when running copilot CLI commands');
+      
+      return;
+    }
+
+    if (action.toLowerCase() === 'ticket-resolution-prompt') {
+      if (!value) {
+        Display.error('Please provide a prompt: config ticket-resolution-prompt <prompt>');
+        Display.info('Available placeholders: ${ID}, ${DESCRIPTION}');
+        return;
+      }
+
+      ConfigManager.setTicketResolutionPrompt(value);
+      Display.success('Ticket Resolution Prompt configured successfully');
+      Display.info('This prompt will be used when building ticket resolution requests');
+      
+      return;
+    }
+
+    Display.error(`Unknown config action: ${action}. Use "config", "config base-repo <path>", "config automation <path>", "config branch <name>", "config model <name>", "config debug on/off", "config ticket-command-prompt <prompt>", or "config ticket-resolution-prompt <prompt>"`);
   }
 
   async ui(port?: string): Promise<void> {

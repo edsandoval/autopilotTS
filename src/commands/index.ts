@@ -14,6 +14,13 @@ import { TicketResolverCLI } from '../agents/TicketResolverCLI.js';
 import { WebServer } from '../web/server.js';
 import { LogInterceptor } from '../utils/log-interceptor.js';
 
+/**
+ * Truncate text to maxLength and add ellipsis if needed
+ */
+function truncateText(text: string, maxLength: number): string {
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
 export class Commands {
   private git: GitManager;
   private copilot: CopilotAgent | null = null;
@@ -643,8 +650,8 @@ Be specific and actionable. Focus on practical steps.`;
       console.log(chalk.white('Base Branch: ') + chalk.green(baseBranch));
       console.log(chalk.white('Copilot Model: ') + chalk.green(copilotModel));
       console.log(chalk.white('Debug Mode: ') + (debugEnabled ? chalk.green('Enabled') : chalk.gray('Disabled')));
-      console.log(chalk.white('Ticket Command Prompt: ') + chalk.gray(ticketCommandPrompt.length > 60 ? ticketCommandPrompt.substring(0, 60) + '...' : ticketCommandPrompt));
-      console.log(chalk.white('Ticket Resolution Prompt: ') + chalk.gray(ticketResolutionPrompt.length > 60 ? ticketResolutionPrompt.substring(0, 60) + '...' : ticketResolutionPrompt));
+      console.log(chalk.white('Ticket Command Prompt: ') + chalk.gray(truncateText(ticketCommandPrompt, 60)));
+      console.log(chalk.white('Ticket Resolution Prompt: ') + chalk.gray(truncateText(ticketResolutionPrompt, 60)));
       console.log();
       
       Display.info('Use "config base-repo <path>" to set base repository path');

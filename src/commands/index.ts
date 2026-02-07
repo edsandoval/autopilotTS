@@ -643,8 +643,8 @@ Be specific and actionable. Focus on practical steps.`;
       console.log(chalk.white('Base Branch: ') + chalk.green(baseBranch));
       console.log(chalk.white('Copilot Model: ') + chalk.green(copilotModel));
       console.log(chalk.white('Debug Mode: ') + (debugEnabled ? chalk.green('Enabled') : chalk.gray('Disabled')));
-      console.log(chalk.white('Ticket Command Prompt: ') + chalk.gray(ticketCommandPrompt.substring(0, 60) + '...'));
-      console.log(chalk.white('Ticket Resolution Prompt: ') + chalk.gray(ticketResolutionPrompt.substring(0, 60) + '...'));
+      console.log(chalk.white('Ticket Command Prompt: ') + chalk.gray(ticketCommandPrompt.length > 60 ? ticketCommandPrompt.substring(0, 60) + '...' : ticketCommandPrompt));
+      console.log(chalk.white('Ticket Resolution Prompt: ') + chalk.gray(ticketResolutionPrompt.length > 60 ? ticketResolutionPrompt.substring(0, 60) + '...' : ticketResolutionPrompt));
       console.log();
       
       Display.info('Use "config base-repo <path>" to set base repository path');
@@ -763,7 +763,17 @@ Be specific and actionable. Focus on practical steps.`;
       return;
     }
 
-    Display.error(`Unknown config action: ${action}. Use "config", "config base-repo <path>", "config automation <path>", "config branch <name>", "config model <name>", "config debug on/off", "config ticket-command-prompt <prompt>", or "config ticket-resolution-prompt <prompt>"`);
+    Display.error(`Unknown config action: ${action}.`);
+    console.log();
+    console.log(chalk.white('Available config commands:'));
+    console.log(chalk.gray('  config                          - Show current configuration'));
+    console.log(chalk.gray('  config base-repo <path>         - Set base repository path'));
+    console.log(chalk.gray('  config automation <path>        - Set automation path'));
+    console.log(chalk.gray('  config branch <name>            - Set base branch'));
+    console.log(chalk.gray('  config model <name>             - Set copilot model'));
+    console.log(chalk.gray('  config debug on/off             - Enable/disable debug mode'));
+    console.log(chalk.gray('  config ticket-command-prompt    - Set ticket command prompt'));
+    console.log(chalk.gray('  config ticket-resolution-prompt - Set ticket resolution prompt'));
   }
 
   async ui(port?: string): Promise<void> {

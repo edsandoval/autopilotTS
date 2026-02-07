@@ -31,7 +31,7 @@ export class ConfigManager {
         automationPath: undefined,
         baseBranch: 'develop',
         copilotModel: 'gpt-4o',
-        ticketCommandPrompt: 'Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementacion que lo resuelva, Archivo -> ${FILE}',
+        ticketCommandPrompt: 'Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementación que lo resuelva, Archivo -> ${FILE}',
         ticketResolutionPrompt: `You are working on a repository.
 
 Corrige el siguiente issue en el código.
@@ -142,7 +142,7 @@ Corrige el siguiente issue en el código.
 
   static getTicketCommandPrompt(): string {
     const config = this.getConfig();
-    return config.ticketCommandPrompt || 'Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementacion que lo resuelva, Archivo -> ${FILE}';
+    return config.ticketCommandPrompt || 'Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementación que lo resuelva, Archivo -> ${FILE}';
   }
 
   static setTicketCommandPrompt(prompt: string): void {

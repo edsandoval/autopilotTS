@@ -3,6 +3,26 @@ import path from 'path';
 import os from 'os';
 import { ProjectConfig } from '../types/index.js';
 
+// Default prompts
+const DEFAULT_TICKET_COMMAND_PROMPT = 'Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementación que lo resuelva, Archivo -> ${FILE}';
+
+const DEFAULT_TICKET_RESOLUTION_PROMPT = `You are working on a repository.
+
+Corrige el siguiente issue en el código.
+
+**Identificador del issue:**
+\${ID}
+**Descripción del issue:**
+\${DESCRIPTION}
+
+**Reglas:**
+- Solo modificar lo necesario
+- No refactorizar código no relacionado
+- No cambiar dependencias
+- No hacer operaciones de git
+- Mantener cambios mínimos
+- Aplicar cambios directamente al código`;
+
 function getAutopilotDir(): string {
   // Get user home directory
   const homeDir = os.homedir();
@@ -30,7 +50,9 @@ export class ConfigManager {
         baseRepositoryPath: undefined,
         automationPath: undefined,
         baseBranch: 'develop',
-        copilotModel: 'gpt-4o'
+        copilotModel: 'gpt-4o',
+        ticketCommandPrompt: DEFAULT_TICKET_COMMAND_PROMPT,
+        ticketResolutionPrompt: DEFAULT_TICKET_RESOLUTION_PROMPT
       };
       
       fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2));
@@ -121,5 +143,27 @@ export class ConfigManager {
 
   static getConfigPath(): string {
     return getAutopilotDir();
+  }
+
+  static getTicketCommandPrompt(): string {
+    const config = this.getConfig();
+    return config.ticketCommandPrompt || DEFAULT_TICKET_COMMAND_PROMPT;
+  }
+
+  static setTicketCommandPrompt(prompt: string): void {
+    const config = this.getConfig();
+    config.ticketCommandPrompt = prompt;
+    this.saveConfig(config);
+  }
+
+  static getTicketResolutionPrompt(): string {
+    const config = this.getConfig();
+    return config.ticketResolutionPrompt || DEFAULT_TICKET_RESOLUTION_PROMPT;
+  }
+
+  static setTicketResolutionPrompt(prompt: string): void {
+    const config = this.getConfig();
+    config.ticketResolutionPrompt = prompt;
+    this.saveConfig(config);
   }
 }

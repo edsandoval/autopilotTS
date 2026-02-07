@@ -32,6 +32,8 @@ export interface ProjectConfig {
   automationPath?: string; // Carpeta automatización
   baseBranch?: string; // Repositorio base (default: develop)
   copilotModel?: string; // Modelo de Copilot (default: gpt-4o)
+  ticketCommandPrompt?: string; // Prompt for running ticket commands (supports ${FILE} placeholder)
+  ticketResolutionPrompt?: string; // Prompt for ticket resolution (supports ${ID}, ${DESCRIPTION} placeholders)
 }
 
 export interface CopilotResponse {

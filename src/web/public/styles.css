@@ -501,10 +501,11 @@ body {
   color: var(--text);
   padding: 8px 12px;
   border-radius: 5px;
-  font-size: 0.8em;
+  font-size: 12px;
   font-weight: normal;
   white-space: normal;
-  width: 250px;
+  max-width: 250px;
+  min-width: 200px;
   text-align: left;
   border: 1px solid var(--primary);
   box-shadow: 0 4px 12px rgba(0, 217, 255, 0.2);

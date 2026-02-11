@@ -34,6 +34,7 @@ export interface ProjectConfig {
   copilotModel?: string; // Modelo de Copilot (default: gpt-4o)
   ticketCommandPrompt?: string; // Prompt for running ticket commands (supports ${FILE} placeholder)
   ticketResolutionPrompt?: string; // Prompt for ticket resolution (supports ${ID}, ${DESCRIPTION} placeholders)
+  reportLanguage?: string; // Language for ticket reports (default: en)
 }
 
 export interface CopilotResponse {

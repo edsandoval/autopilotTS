@@ -4,24 +4,24 @@ import os from 'os';
 import { ProjectConfig } from '../types/index.js';
 
 // Default prompts
-const DEFAULT_TICKET_COMMAND_PROMPT = 'Actúa como desarrollador senior. Analiza el ticket de software en el siguiente archivo y proporciona una implementación que lo resuelva, Archivo -> ${FILE}';
+const DEFAULT_TICKET_COMMAND_PROMPT = 'Act as a senior developer. Analyze the software ticket in the following file and provide an implementation to resolve it, File -> ${FILE}';
 
 const DEFAULT_TICKET_RESOLUTION_PROMPT = `You are working on a repository.
 
-Corrige el siguiente issue en el código.
+Fix the following issue in the code.
 
-**Identificador del issue:**
+**Issue Identifier:**
 \${ID}
-**Descripción del issue:**
+**Issue Description:**
 \${DESCRIPTION}
 
-**Reglas:**
-- Solo modificar lo necesario
-- No refactorizar código no relacionado
-- No cambiar dependencias
-- No hacer operaciones de git
-- Mantener cambios mínimos
-- Aplicar cambios directamente al código`;
+**Rules:**
+- Only modify what's necessary
+- Don't refactor unrelated code
+- Don't change dependencies
+- Don't perform git operations
+- Keep changes minimal
+- Apply changes directly to the code`;
 
 function getAutopilotDir(): string {
   // Get user home directory
@@ -52,7 +52,8 @@ export class ConfigManager {
         baseBranch: 'develop',
         copilotModel: 'gpt-4o',
         ticketCommandPrompt: DEFAULT_TICKET_COMMAND_PROMPT,
-        ticketResolutionPrompt: DEFAULT_TICKET_RESOLUTION_PROMPT
+        ticketResolutionPrompt: DEFAULT_TICKET_RESOLUTION_PROMPT,
+        reportLanguage: 'en'
       };
       
       fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2));
@@ -164,6 +165,17 @@ export class ConfigManager {
   static setTicketResolutionPrompt(prompt: string): void {
     const config = this.getConfig();
     config.ticketResolutionPrompt = prompt;
+    this.saveConfig(config);
+  }
+
+  static getReportLanguage(): string {
+    const config = this.getConfig();
+    return config.reportLanguage || 'en';
+  }
+
+  static setReportLanguage(language: string): void {
+    const config = this.getConfig();
+    config.reportLanguage = language;
     this.saveConfig(config);
   }
 }

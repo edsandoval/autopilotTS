@@ -4,11 +4,38 @@ import { CopilotModelsManager } from '../../utils/copilot-models.js';
 
 const router = Router();
 
+// Default prompts (same as in config.ts)
+const DEFAULT_TICKET_COMMAND_PROMPT = 'Act as a senior developer. Analyze the software ticket in the following file and provide an implementation to resolve it, File -> ${FILE}';
+
+const DEFAULT_TICKET_RESOLUTION_PROMPT = `You are working on a repository.
+
+Fix the following issue in the code.
+
+**Issue Identifier:**
+\${ID}
+**Issue Description:**
+\${DESCRIPTION}
+
+**Rules:**
+- Only modify what's necessary
+- Don't refactor unrelated code
+- Don't change dependencies
+- Don't perform git operations
+- Keep changes minimal
+- Apply changes directly to the code`;
+
 // GET /api/config - Get current configuration
 router.get('/', async (req: Request, res: Response) => {
   try {
     const config = ConfigManager.getConfig();
-    res.json({ success: true, config });
+    res.json({ 
+      success: true, 
+      config,
+      defaults: {
+        ticketCommandPrompt: DEFAULT_TICKET_COMMAND_PROMPT,
+        ticketResolutionPrompt: DEFAULT_TICKET_RESOLUTION_PROMPT
+      }
+    });
   } catch (error) {
     res.status(500).json({ 
       success: false, 
@@ -49,6 +76,8 @@ router.post('/', async (req: Request, res: Response) => {
       ConfigManager.setTicketCommandPrompt(value || '');
     } else if (key === 'ticketResolutionPrompt') {
       ConfigManager.setTicketResolutionPrompt(value || '');
+    } else if (key === 'reportLanguage') {
+      ConfigManager.setReportLanguage(value || 'en');
     } else {
       return res.status(400).json({ 
         success: false, 

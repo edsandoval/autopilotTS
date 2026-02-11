@@ -282,13 +282,18 @@ class AutopilotApp {
     try {
       const data = await this.apiCall('/config');
       const config = data.config || {};
+      const defaults = data.defaults || {};
       
       document.getElementById('baseRepositoryPath').value = config.baseRepositoryPath || '';
       document.getElementById('automationPath').value = config.automationPath || '';
       document.getElementById('baseBranch').value = config.baseBranch || 'develop';
       document.getElementById('debugMode').checked = config.debug || false;
-      document.getElementById('ticketCommandPrompt').value = config.ticketCommandPrompt || '';
-      document.getElementById('ticketResolutionPrompt').value = config.ticketResolutionPrompt || '';
+      
+      // Use defaults if no custom value is set
+      document.getElementById('ticketCommandPrompt').value = config.ticketCommandPrompt || defaults.ticketCommandPrompt || '';
+      document.getElementById('ticketResolutionPrompt').value = config.ticketResolutionPrompt || defaults.ticketResolutionPrompt || '';
+      
+      document.getElementById('reportLanguage').value = config.reportLanguage || 'en';
       
       // Set model dropdown value if models are already loaded
       const modelSelect = document.getElementById('copilotModel');
@@ -312,6 +317,7 @@ class AutopilotApp {
     const debug = document.getElementById('debugMode').checked;
     const ticketCommandPrompt = document.getElementById('ticketCommandPrompt').value;
     const ticketResolutionPrompt = document.getElementById('ticketResolutionPrompt').value;
+    const reportLanguage = document.getElementById('reportLanguage').value;
     
     try {
       this.updateStatus('Saving configuration...');
@@ -354,6 +360,11 @@ class AutopilotApp {
       await this.apiCall('/config', {
         method: 'POST',
         body: JSON.stringify({ key: 'ticketResolutionPrompt', value: ticketResolutionPrompt })
+      });
+      
+      await this.apiCall('/config', {
+        method: 'POST',
+        body: JSON.stringify({ key: 'reportLanguage', value: reportLanguage })
       });
       
       this.hideConfigModal();

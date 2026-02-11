@@ -459,6 +459,76 @@ body {
   cursor: pointer;
 }
 
+/* Help Tooltip */
+.label-with-help {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--dark-3);
+  border: 1px solid var(--border);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: bold;
+  cursor: help;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.help-icon:hover {
+  background: var(--primary);
+  color: var(--dark);
+  border-color: var(--primary);
+}
+
+.help-icon .tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 8px);
+  background: var(--dark-3);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 0.8em;
+  font-weight: normal;
+  white-space: normal;
+  width: 250px;
+  text-align: left;
+  border: 1px solid var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 217, 255, 0.2);
+  z-index: 1001;
+  pointer-events: none;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+
+.help-icon .tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--primary);
+}
+
+.help-icon:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
 /* Model Select Dropdown */
 .form-group select.model-select {
   width: 100%;

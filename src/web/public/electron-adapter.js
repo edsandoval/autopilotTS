@@ -53,7 +53,7 @@
         return await window.electronAPI.deleteTicket(id);
       }
       
-      if (endpoint.match(/^\/tickets\/(.+)$/) && method === 'PUT') {
+      if (endpoint.match(/^\/tickets\/(.+)$/) && (method === 'PUT' || method === 'PATCH')) {
         const id = endpoint.match(/^\/tickets\/(.+)$/)[1];
         return await window.electronAPI.updateTicket(id, body.description);
       }

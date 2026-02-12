@@ -68,29 +68,6 @@ class AutopilotApp {
     this.writeToTerminal(logMessage, logType);
   }
 
-  handleWebSocketMessage(data) {
-    // Handle terminal logs
-    if (data.type === 'log' || data.type === 'error') {
-      this.writeToTerminal(data.data, data.type);
-      return;
-    }
-    
-    if (data.type === 'clear') {
-      this.clearTerminals();
-      return;
-    }
-    
-    if (data.type === 'connected') {
-      console.log('WebSocket:', data.message);
-      return;
-    }
-    
-    // Legacy handlers
-    if (data.type === 'ticket_update') {
-      this.loadTickets();
-    }
-  }
-
   // API Methods
   async apiCall(endpoint, options = {}) {
     try {

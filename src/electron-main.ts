@@ -95,10 +95,9 @@ function setupIpcHandlers() {
       if (!ticket) {
         throw new Error('Ticket not found');
       }
-      ticket.description = description;
-      const config = Storage.getConfig();
-      Storage.saveConfig(config);
-      return { success: true, ticket };
+      Storage.updateTicket(id, { description });
+      const updatedTicket = Storage.getTicket(id);
+      return { success: true, ticket: updatedTicket };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }

@@ -1,7 +1,7 @@
-import { WebServer } from '../web/server.js';
+import { sendLog } from '../electron-main.js';
 
 /**
- * Log Interceptor - Captures console.log and sends to WebSocket
+ * Log Interceptor - Captures console.log and sends to Electron renderer
  */
 export class LogInterceptor {
   private static originalLog: typeof console.log;
@@ -10,7 +10,7 @@ export class LogInterceptor {
   private static currentTicketId?: string;
 
   /**
-   * Start intercepting console.log/error and broadcast to WebSocket
+   * Start intercepting console.log/error and send to Electron renderer
    */
   static start(ticketId?: string): void {
     if (this.isIntercepting) return;
@@ -24,28 +24,22 @@ export class LogInterceptor {
       // Call original console.log
       this.originalLog(...args);
 
-      // Broadcast to WebSocket
-      const webServer = WebServer.getInstance();
-      if (webServer) {
-        const message = args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-        ).join(' ');
-        webServer.broadcastLog(message, 'log', this.currentTicketId);
-      }
+      // Send to Electron renderer
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+      ).join(' ');
+      sendLog(message, 'log', this.currentTicketId);
     };
 
     console.error = (...args: any[]) => {
       // Call original console.error
       this.originalError(...args);
 
-      // Broadcast to WebSocket
-      const webServer = WebServer.getInstance();
-      if (webServer) {
-        const message = args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-        ).join(' ');
-        webServer.broadcastLog(message, 'error', this.currentTicketId);
-      }
+      // Send to Electron renderer
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+      ).join(' ');
+      sendLog(message, 'error', this.currentTicketId);
     };
   }
 

@@ -109,19 +109,43 @@
       <div class="modal-body">
         <form id="configForm">
           <div class="form-group">
-            <label for="baseRepositoryPath">Base Repository Path</label>
+            <div class="label-with-help">
+              <label for="baseRepositoryPath">Base Repository Path</label>
+              <span class="help-icon">
+                ?
+                <span class="tooltip">The root directory path where your project repositories are stored. This is the parent folder containing your git repositories.</span>
+              </span>
+            </div>
             <input type="text" id="baseRepositoryPath" placeholder="Base repository folder path">
           </div>
           <div class="form-group">
-            <label for="automationPath">Automation Path</label>
+            <div class="label-with-help">
+              <label for="automationPath">Automation Path</label>
+              <span class="help-icon">
+                ?
+                <span class="tooltip">The directory path where Autopilot stores ticket data and configuration files. Leave empty to use the current directory.</span>
+              </span>
+            </div>
             <input type="text" id="automationPath" placeholder="Automation folder path">
           </div>
           <div class="form-group">
-            <label for="baseBranch">Base Branch</label>
+            <div class="label-with-help">
+              <label for="baseBranch">Base Branch</label>
+              <span class="help-icon">
+                ?
+                <span class="tooltip">The default git branch to use as the base for creating new branches when working on tickets. Typically 'develop' or 'main'.</span>
+              </span>
+            </div>
             <input type="text" id="baseBranch" placeholder="develop">
           </div>
           <div class="form-group">
-            <label for="copilotModel">Copilot Model</label>
+            <div class="label-with-help">
+              <label for="copilotModel">Copilot Model</label>
+              <span class="help-icon">
+                ?
+                <span class="tooltip">The GitHub Copilot AI model to use for code generation and assistance. Different models may have different capabilities and performance.</span>
+              </span>
+            </div>
             <select id="copilotModel" class="model-select">
               <option value="">Loading models...</option>
             </select>
@@ -130,7 +154,13 @@
             </button>
           </div>
           <div class="form-group">
-            <label for="reportLanguage">Report Language</label>
+            <div class="label-with-help">
+              <label for="reportLanguage">Report Language</label>
+              <span class="help-icon">
+                ?
+                <span class="tooltip">The language to use for generating ticket resolution reports and status messages in the terminal output.</span>
+              </span>
+            </div>
             <select id="reportLanguage" class="model-select">
               <option value="en">English</option>
               <option value="es">Español</option>
@@ -140,20 +170,38 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="ticketCommandPrompt">Ticket Command Prompt</label>
+            <div class="label-with-help">
+              <label for="ticketCommandPrompt">Ticket Command Prompt</label>
+              <span class="help-icon">
+                ?
+                <span class="tooltip">Custom prompt template for ticket command execution. Use ${FILE} placeholder to reference the ticket file location.</span>
+              </span>
+            </div>
             <textarea id="ticketCommandPrompt" rows="4" 
               placeholder="Enter prompt for ticket command execution (supports ${FILE} placeholder)"></textarea>
           </div>
           <div class="form-group">
-            <label for="ticketResolutionPrompt">Ticket Resolution Prompt</label>
+            <div class="label-with-help">
+              <label for="ticketResolutionPrompt">Ticket Resolution Prompt</label>
+              <span class="help-icon">
+                ?
+                <span class="tooltip">Custom prompt template for AI-powered ticket resolution. Use ${ID} and ${DESCRIPTION} placeholders to inject ticket details.</span>
+              </span>
+            </div>
             <textarea id="ticketResolutionPrompt" rows="6" 
               placeholder="Enter prompt for ticket resolution (supports ${ID}, ${DESCRIPTION} placeholders)"></textarea>
           </div>
           <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="debugMode">
-              Enable Debug Mode
-            </label>
+            <div class="label-with-help">
+              <label class="checkbox-label">
+                <input type="checkbox" id="debugMode">
+                Enable Debug Mode
+              </label>
+              <span class="help-icon">
+                ?
+                <span class="tooltip">Enable verbose logging and detailed debug output for troubleshooting. Shows detailed Copilot SDK requests/responses.</span>
+              </span>
+            </div>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="app.hideConfigModal()">Cancel</button>

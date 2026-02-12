@@ -39,9 +39,7 @@
 
 ## What is this?
 
-AutopilotTS was born as a **CLI tool** that uses **GitHub Copilot CLI** and **GitHub Copilot SDK** to automatically resolve development tickets while you focus on other things.
-
-**However**, for a better user experience, a **Web UI version** was developed where most recent improvements have been concentrated. The terminal CLI version still works, but it's more neglected.
+AutopilotTS is a **desktop application** built with Electron that uses **GitHub Copilot CLI** and **GitHub Copilot SDK** to automatically resolve development tickets while you focus on other things.
 
 <div align="center">
   <img src="./docs/dashboard.png" alt="AutopilotTS Dashboard" width="800"/>
@@ -52,14 +50,14 @@ The idea came from: *"What if I could give Copilot a list of tasks and have it r
 
 ### Key technologies:
 
+- **Electron**: Cross-platform desktop application framework
 - **GitHub Copilot CLI** (`gh copilot`): Main engine that automatically resolves tickets
 - **GitHub Copilot SDK** (`@github/copilot-sdk`): For other activities:
   - Generate commit messages based on applied changes
   - Get list of available models
   - Code analysis and documentation
 - **Git Worktrees**: Total isolation - each ticket is resolved in its own branch
-- **Web UI**: Express + WebSocket for modern interface and real-time logs
-- TypeScript, Commander.js (for legacy CLI)
+- **TypeScript**: Type-safe development
 
 ---
 
@@ -124,8 +122,7 @@ Instead of sitting around waiting for Copilot to generate code line by line, it'
   - Code analysis and documentation
 - **Git Worktrees**: Each ticket resolves in an isolated worktree (separate branch)
 - **Storage**: Saves tickets in `~/.autopilot/tickets.json`
-- **Web UI** (main): Modern interface to manage tickets and see real-time logs
-- **CLI** (legacy): Terminal interface (more neglected, but functional)
+- **Electron Desktop App**: Modern cross-platform desktop interface with real-time updates
 
 ### Why worktrees?
 
@@ -143,12 +140,12 @@ Because you can have multiple tickets being resolved in parallel without interfe
   - Code and change analysis
 - Git worktrees for total isolation (safe concurrency)
 - Detailed HTML summaries with diffs of all changes
-- **Modern Web UI** with:
+- **Desktop Application** with:
+  - Native window experience
   - Ticket dashboard
-  - Real-time logs (WebSocket)
+  - Real-time logs
   - Integrated terminal
   - Visual configuration
-- Terminal CLI (legacy, functional but less developed)
 - Per-project configuration
 - Debug mode to see internal process
 
@@ -158,7 +155,8 @@ Because you can have multiple tickets being resolved in parallel without interfe
 
 ```
          ┌─────────────────────┐
-         │   CLI / Web UI      │
+         │  Electron Desktop   │
+         │   Application       │
          └──────────┬──────────┘
                     │
          ┌──────────▼──────────┐
@@ -221,73 +219,49 @@ npm link
 
 ## Quick start
 
-### 1. Configure your project
-
-**Recommended: Use Web UI**
+### 1. Launch the Application
 
 ```bash
-# Start Web UI
-autopilot ui 3000
+# Start the desktop application
+npm start
 
-# Open http://localhost:3000 in your browser
-# Go to configuration section
+# Or in development mode
+npm run dev
 ```
+
+The application window will open automatically with the ticket dashboard.
+
+### 2. Configure your project
+
+1. Click the **⚙️ Config** button in the top-right corner
+2. Configure the following settings:
+   - **Base Repository Path**: Path to your main project repository
+   - **Automation Path**: Folder where worktrees will be created
+   - **Base Branch**: Default branch (e.g., `develop` or `main`)
+   - **Copilot Model**: Select your preferred AI model
+   - **Debug Mode**: Enable for verbose logging
 
 <div align="center">
   <img src="./docs/config.png" alt="AutopilotTS Configuration" width="800"/>
-  <p><i>Configuration window in Web UI</i></p>
+  <p><i>Configuration window in Desktop App</i></p>
 </div>
 
-**Or from CLI:**
+### 3. Create tickets
 
-```bash
-# Path to your main repo
-autopilot config set baseRepositoryPath /path/to/your/project
+1. Click **➕ New Ticket** button
+2. Enter ticket name and description
+3. Click **Create Ticket**
 
-# Folder where worktrees will be created
-autopilot config set autopilotFolderPath /path/automation/folder
+Your tickets will appear in the main dashboard.
 
-# (Optional) Copilot model to use
-autopilot config set copilotModel gpt-4o
+### 4. Let Copilot resolve them
 
-# (Optional) Enable debug mode
-autopilot config debug on
-```
+1. Click the **Start** button on a ticket
+2. Watch real-time logs in the integrated terminal
+3. **GitHub Copilot CLI** will analyze and resolve the ticket
+4. Meanwhile, you can keep coding on your main branch
 
-### 2. Create tickets
-
-**From Web UI (recommended):**
-- Open http://localhost:3000
-- Click "New Ticket"
-- Write description and save
-
-**From CLI:**
-```bash
-# Create a ticket with description
-autopilot create "Refactor authentication module to use JWT"
-
-# Or in interactive mode
-autopilot
-> create
-```
-
-### 3. Let Copilot resolve them
-
-**From Web UI:**
-- Click "Start" on the ticket you want to resolve
-- Watch real-time logs in the integrated terminal
-- **GitHub Copilot CLI** will get to work...
-
-**From CLI:**
-```bash
-# Start ticket resolution
-autopilot start TICKET-001
-
-# GitHub Copilot CLI will get to work...
-# Meanwhile, you can keep coding on your main branch
-```
-
-### 4. Review changes
+### 5. Review changes
 
 Once it finishes, AutopilotTS will have left you:
 - A new branch with changes (in the worktree)
@@ -340,29 +314,37 @@ autopilot ui 3000
 - Complete ticket management without commands
 - REST API for integrations
 
-### CLI Commands (Legacy)
+## Commands
 
-Terminal CLI still works, though it's less developed:
+### Desktop Application Interface
+
+The desktop application provides a user-friendly graphical interface to manage all ticket operations:
+
+**Main Features:**
+- 📊 **Dashboard**: View all tickets with their current status
+- ➕ **New Ticket**: Create tickets with detailed descriptions
+- ▶️ **Start/Stop**: Control ticket resolution
+- ⚙️ **Configuration**: Manage all settings visually
+- 📺 **Terminal**: Real-time logs and output
+- 🗑️ **Delete**: Remove completed or unwanted tickets
+
+### Build Commands
 
 ```bash
-# Ticket management
-autopilot create <description>           # Create ticket
-autopilot list                           # List all tickets
-autopilot view <ticketId>                # View ticket details
-autopilot start <ticketId>               # Start resolution
-autopilot stop <ticketId>                # Stop resolution
-autopilot delete <ticketId>              # Delete ticket
+# Development
+npm run dev              # Run with hot reload
+npm run watch            # Watch mode for TypeScript
 
-# Configuration
-autopilot config list                    # View current configuration
-autopilot config set <key> <value>       # Change configuration
-autopilot config debug on/off            # Enable/disable verbose logs
+# Build
+npm run build            # Compile TypeScript
 
-# Interactive mode
-autopilot                                # Interactive shell (REPL)
+# Production
+npm start                # Run the desktop app
+
+# Distribution
+npm run pack             # Package app (no installer)
+npm run dist             # Create distributable installers
 ```
-
-**Note:** Most recent improvements were applied to Web UI. If you find bugs in CLI, consider using the web interface.
 
 ---
 
@@ -407,14 +389,13 @@ AutopilotTS uses **GitHub Copilot SDK** to dynamically get the list of available
 
 ## Usage examples
 
-### Example 1: Typical workflow (Web UI)
+### Example 1: Typical workflow (Desktop App)
 
 ```bash
-# Start Web UI
-$ autopilot ui 3000
-✓ Web UI running at http://localhost:3000
+# Launch the desktop application
+$ npm start
 
-# From browser:
+# In the application window:
 # 1. Create several tickets from dashboard
 # 2. Click "Start" on first ticket
 # 3. Watch in real-time how GitHub Copilot CLI resolves it
@@ -429,32 +410,18 @@ $ npm test
 # 2. If it's good, merge. If not, fix or discard.
 ```
 
-### Example 1b: CLI workflow (legacy)
-
-```bash
-# Create several tickets
-$ autopilot create "Add email validation in registration form"
-✓ TICKET-001 created
-
-$ autopilot create "Refactor calculateTotal() function for better performance"
-✓ TICKET-002 created
-
-# Start resolution of the first one
-$ autopilot start TICKET-001
-→ Creating worktree...
-→ Calling GitHub Copilot CLI...
-→ [GitHub Copilot CLI is working...]
-→ Generating commit with GitHub Copilot SDK...
-✓ Done! Review at: /autopilot-workspace/TICKET-001
-```
-
 ### Example 2: Debug mode
 
 Useful when something doesn't work as expected:
 
-```bash
-$ autopilot config debug on
-$ autopilot start TICKET-002
+1. Open the desktop app
+2. Click **⚙️ Config**
+3. Enable **Debug Mode** checkbox
+4. Click **Save Config**
+5. Start a ticket and watch verbose logs in the terminal
+
+The integrated terminal will show detailed information:
+```
 [DEBUG] Creating worktree at: /path/workspace
 [DEBUG] Git command: git worktree add ...
 [DEBUG] Calling GitHub Copilot CLI...
@@ -467,21 +434,17 @@ $ autopilot start TICKET-002
 
 ### Example 3: Dynamic model selection
 
-```bash
-# Web UI automatically shows models available in your account
-# (Thanks to GitHub Copilot SDK)
+The desktop app automatically shows models available in your account (thanks to GitHub Copilot SDK):
 
-# From configuration, select the model:
-# - gpt-4o (default)
-# - claude-sonnet-4 (if you have it)
-# - gpt-5 (if you have access)
+1. Open **⚙️ Config**
+2. Click **🔄 Refresh** next to the model dropdown
+3. Select your preferred model:
+   - `gpt-4o` (default)
+   - `claude-sonnet-4` (if you have it)
+   - `gpt-5` (if you have access)
+4. Click **Save Config**
 
-# Or from CLI:
-$ autopilot config set copilotModel claude-sonnet-4
-✓ Model updated
-
-# Next ticket will use that model to resolve
-```
+The next ticket will use your selected model.
 
 ---
 
@@ -557,8 +520,8 @@ Coverage: storage, config, prompts, types, workflows.
 - Remember: AI is good, but not perfect
 
 ### "Worktrees get stuck"
-- `autopilot stop <ticketId>` should clean up
-- If not, delete manually: `git worktree remove /path/worktree`
+- Use the **Stop** button in the desktop app
+- If that doesn't work, delete manually: `git worktree remove /path/worktree`
 
 ### "Can I resolve multiple tickets in parallel?"
 - Technically yes (each in its worktree)
@@ -570,12 +533,10 @@ Coverage: storage, config, prompts, types, workflows.
 - It's a tool to save time on repetitive tasks
 - YOU are still the one who reviews, fixes, and decides
 
-### "Why use Web UI instead of CLI?"
-- Web UI is more developed and receives more updates
-- Integrated terminal with live logs
-- More intuitive visual configuration
-- Dashboard with status of all tickets
-- Terminal CLI works, but is more neglected
+### "How do I distribute the app?"
+- Run `npm run dist` to create installers for your platform
+- Installers will be in the `release/` directory
+- Supports Windows (NSIS), macOS (DMG), and Linux (AppImage)
 
 ---
 
@@ -588,10 +549,9 @@ MIT - Do whatever you want with the code. No warranties.
 ## Credits
 
 - **GitHub Copilot CLI & SDK** - The engine behind all this
-- **Commander.js** - CLI parsing
-- **Inquirer.js** - Interactive prompts
+- **Electron** - Cross-platform desktop framework
 - **Simple-Git** - Git operations
-- **Express & WS** - Web UI
+- **TypeScript** - Type-safe development
 
 ---
 
@@ -605,7 +565,7 @@ But it works well enough to save me time in my day-to-day. If it helps you, grea
 
 ---
 
-**TL;DR:** CLI tool that uses GitHub Copilot to resolve tickets while you do other things. Always review what AI does. Profit.
+**TL;DR:** Desktop app that uses GitHub Copilot to resolve tickets while you do other things. Always review what AI does. Profit.
 
 ---
 

@@ -27,10 +27,10 @@ class AutopilotApp {
     await this.loadTickets();
     await this.loadConfig();
     await this.loadModels(); // Load available models
-    this.setupWebSocket();
+    this.setupElectronIPC(); // Use Electron IPC instead of WebSocket
     this.setupTerminal();
     this.setupEventListeners();
-    this.updateStatus('Ready');
+    this.updateStatus('Ready - Desktop Mode');
   }
 
   setupEventListeners() {
@@ -47,57 +47,25 @@ class AutopilotApp {
     this.setupTerminalResize();
   }
 
-  // WebSocket Connection
-  setupWebSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    try {
-      this.ws = new WebSocket(wsUrl);
-      
-      this.ws.onopen = () => {
-        console.log('WebSocket connected');
-      };
-      
-      this.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        this.handleWebSocketMessage(data);
-      };
-      
-      this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        setTimeout(() => this.setupWebSocket(), 3000);
-      };
-      
-      this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-    } catch (error) {
-      console.error('Failed to setup WebSocket:', error);
+  // Electron IPC Setup (replaces WebSocket)
+  setupElectronIPC() {
+    // Check if running in Electron
+    if (typeof window.electronAPI === 'undefined') {
+      console.warn('Not running in Electron environment');
+      return;
     }
+    
+    console.log('Electron IPC initialized');
+    // Ticket log listener is already set up in electron-adapter.js
   }
 
-  handleWebSocketMessage(data) {
-    // Handle terminal logs
-    if (data.type === 'log' || data.type === 'error') {
-      this.writeToTerminal(data.data, data.type);
-      return;
-    }
+  // Handle ticket logs from Electron IPC
+  handleTicketLog(data) {
+    const { message, type, ticketId, log } = data;
+    const logMessage = message || log || '';
+    const logType = type || 'log';
     
-    if (data.type === 'clear') {
-      this.clearTerminals();
-      return;
-    }
-    
-    if (data.type === 'connected') {
-      console.log('WebSocket:', data.message);
-      return;
-    }
-    
-    // Legacy handlers
-    if (data.type === 'ticket_update') {
-      this.loadTickets();
-    }
+    this.writeToTerminal(logMessage, logType);
   }
 
   // API Methods

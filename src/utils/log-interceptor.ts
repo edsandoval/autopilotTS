@@ -1,4 +1,4 @@
-import { sendLog } from '../electron-main.js';
+import { BrowserWindow } from 'electron';
 
 /**
  * Log Interceptor - Captures console.log and sends to Electron renderer
@@ -8,6 +8,14 @@ export class LogInterceptor {
   private static originalError: typeof console.error;
   private static isIntercepting = false;
   private static currentTicketId?: string;
+  private static mainWindow: BrowserWindow | null = null;
+
+  /**
+   * Initialize with main window reference
+   */
+  static initialize(window: BrowserWindow): void {
+    this.mainWindow = window;
+  }
 
   /**
    * Start intercepting console.log/error and send to Electron renderer
@@ -24,23 +32,44 @@ export class LogInterceptor {
       // Call original console.log
       this.originalLog(...args);
 
-      // Send to Electron renderer
+      // Send to Electron renderer (strip chalk colors)
       const message = args.map(arg => 
         typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
       ).join(' ');
-      sendLog(message, 'log', this.currentTicketId);
+      
+      // Remove ANSI color codes
+      const cleanMessage = message.replace(/\x1b\[[0-9;]*m/g, '');
+      
+      this.sendLog(cleanMessage, 'log');
     };
 
     console.error = (...args: any[]) => {
       // Call original console.error
       this.originalError(...args);
 
-      // Send to Electron renderer
+      // Send to Electron renderer (strip chalk colors)
       const message = args.map(arg => 
         typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
       ).join(' ');
-      sendLog(message, 'error', this.currentTicketId);
+      
+      // Remove ANSI color codes
+      const cleanMessage = message.replace(/\x1b\[[0-9;]*m/g, '');
+      
+      this.sendLog(cleanMessage, 'error');
     };
+  }
+
+  /**
+   * Send log to renderer
+   */
+  private static sendLog(message: string, type: 'log' | 'error'): void {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('ticket-log', { 
+        message, 
+        type, 
+        ticketId: this.currentTicketId 
+      });
+    }
   }
 
   /**

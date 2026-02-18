@@ -14,48 +14,63 @@ npm run test:watch
 
 ## Estructura de Tests
 
-### 1. **storage.test.ts** - Manejo de Tickets
-- ✅ Crear estructura válida de tickets
-- ✅ Persistir tickets a archivo JSON
-- ✅ Cargar y auto-incrementar IDs
-- ✅ Actualizar status de tickets
-- ✅ Manejar múltiples tickets
-
-### 2. **config.test.ts** - Configuración de Proyecto
+### 1. **config.test.ts** - Configuración de Proyecto (5 tests)
 - ✅ Leer/escribir project path
 - ✅ Manejar modo debug
 - ✅ Almacenar modelo de Copilot
 - ✅ Crear estructura de config por defecto
 
-### 3. **copilot-cli.test.ts** - Sistema de Prompts
-- ✅ Crear directorio de prompts
-- ✅ Guardar prompts con ticket ID en filename
-- ✅ Preservar caracteres especiales en prompts
-- ✅ Crear filename sin ticket ID cuando no se provee
-- ✅ Usar ubicación estándar en home directory
+### 2. **storage.test.ts** - Validación de Estructura de Tickets (3 tests)
+- ✅ Validar formato de ticket IDs
+- ✅ Validar campos requeridos en Ticket
+- ✅ Soportar campos opcionales (branch, summary, timestamps)
 
-### 4. **types.test.ts** - Validación de Tipos
-- ✅ Crear objetos Ticket válidos
-- ✅ Validar transiciones de status
-- ✅ Incluir campo branch opcional
-- ✅ Validar formato de ticket ID
+### 3. **types.test.ts** - Tipos TypeScript (3 tests)
+- ✅ Crear Tickets con estructura completa
+- ✅ Soportar todos los TicketStatus
+- ✅ Validar estructura de AutopilotResult
 
-### 5. **workflows.test.ts** - Flujos de Trabajo
+### 4. **git.test.ts** - Git y Branches (3 tests)
+- ✅ Validar configuración de branch base
 - ✅ Generar nombres de branches correctos
-- ✅ Manejar diferentes prefijos de tickets
-- ✅ Validar nombre de branch por defecto
-- ✅ Seguir ciclo de vida de status correcto
+- ✅ Validar formato de ticket IDs en branches
+
+### 5. **log-interceptor.test.ts** - Interceptor de Logs (4 tests)
+- ✅ Inicializar con ventana Electron
+- ✅ Configurar ticket ID
+- ✅ Iniciar/detener intercepción
+- ✅ Múltiples ciclos de start/stop
+
+## Estadísticas
+
+- **Total de archivos:** 5
+- **Total de tests:** 18
+- **Estado:** ✅ Todos pasando
 
 ## Cobertura
 
-Los tests cubren las funcionalidades más críticas:
-- ✅ Persistencia de datos (tickets y configuración)
-- ✅ Sistema de prompts mejorado con archivos
-- ✅ Validación de tipos y estructuras
-- ✅ Flujos de trabajo y convenciones
+Los tests cubren las funcionalidades core:
+- ✅ Sistema de configuración
+- ✅ Validación de estructuras de datos
+- ✅ Sistema de Git/branches
+- ✅ Intercepción de logs para UI
 
 ## Tecnología
 
-- **Framework**: [Vitest](https://vitest.dev/) - Rápido, compatible con ES modules
+- **Framework**: [Vitest](https://vitest.dev/)
 - **Configuración**: `vitest.config.ts`
-- **Ejecución**: Usa directorios temporales para aislar tests
+- **Aislamiento**: Tests independientes, sin side-effects
+
+## Cambios Recientes
+
+**Tests eliminados (obsoletos):**
+- ❌ `copilot-cli.test.ts` - Tests básicos sin valor funcional
+- ❌ `prompt-config.test.ts` - Wrapper CLI legacy no usado
+- ❌ `workflows.test.ts` - Tests genéricos sin contexto actual
+
+**Tests actualizados:**
+- ✨ `storage.test.ts` - Enfocado en validación de estructura
+- ✨ `types.test.ts` - Recreado para arquitectura actual
+- ✨ `git.test.ts` - Nuevo, tests de branching
+- ✨ `log-interceptor.test.ts` - Nuevo, tests de logging
+

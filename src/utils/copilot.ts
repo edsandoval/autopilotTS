@@ -1,6 +1,5 @@
 import { CopilotClient } from '@github/copilot-sdk';
 import chalk from 'chalk';
-import { CopilotResponse } from '../types/index.js';
 import { ConfigManager } from './config.js';
 
 export class CopilotAgent {
@@ -21,211 +20,6 @@ export class CopilotAgent {
         console.log(chalk.hex('#707070')(content)); // Gris oscuro
       }
       console.log(); // Línea en blanco para separación
-    }
-  }
-
-  async generateCode(
-    ticketId: string,
-    description: string,
-    additionalContext?: string
-  ): Promise<CopilotResponse> {
-    try {
-      console.log(chalk.blue('⏳ Calling GitHub Copilot to generate code...'));
-
-      await this.client.start();
-      const session = await this.client.createSession({
-        model: 'gpt-5'
-      });
-
-      const prompt = this.buildPrompt(ticketId, description, additionalContext);
-
-      this.debugLog('request', prompt);
-
-      let fullResponse = '';
-      const done = new Promise<void>((resolve) => {
-        session.on((event) => {
-          if (event.type === 'assistant.message') {
-            fullResponse += event.data.content;
-          } else if (event.type === 'session.idle') {
-            resolve();
-          }
-        });
-      });
-
-      await session.send({ prompt });
-      await done;
-
-      this.debugLog('response', fullResponse);
-
-      await session.destroy();
-      await this.client.stop();
-
-      console.log(chalk.green('✓ GitHub Copilot completed successfully'));
-      
-      return {
-        success: true,
-        message: fullResponse,
-        changes: this.extractCodeBlocks(fullResponse)
-      };
-
-    } catch (error) {
-      console.error(chalk.red('✗ Error calling GitHub Copilot:'), error);
-      
-      return {
-        success: false,
-        message: 'Failed to generate code',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  async analyzeTicket(prompt: string): Promise<CopilotResponse> {
-    try {
-      await this.client.start();
-      const session = await this.client.createSession({
-        model: 'gpt-5'
-      });
-
-      this.debugLog('request', prompt);
-
-      let fullResponse = '';
-      const done = new Promise<void>((resolve) => {
-        session.on((event) => {
-          if (event.type === 'assistant.message') {
-            fullResponse += event.data.content;
-          } else if (event.type === 'session.idle') {
-            resolve();
-          }
-        });
-      });
-
-      await session.send({ prompt });
-      await done;
-
-      this.debugLog('response', fullResponse);
-
-      await session.destroy();
-      await this.client.stop();
-
-      return {
-        success: true,
-        message: fullResponse
-      };
-
-    } catch (error) {
-      console.error(chalk.red('✗ Error during analysis:'), error);
-      
-      return {
-        success: false,
-        message: 'Failed to analyze ticket',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  private buildPrompt(
-    ticketId: string,
-    description: string,
-    additionalContext?: string
-  ): string {
-    return `You are an expert software developer working on a ticket resolution system.
-
-Ticket ID: ${ticketId}
-Description: ${description}
-${additionalContext ? `Additional Context: ${additionalContext}` : ''}
-
-Please provide:
-1. A complete implementation plan
-2. Code files needed (with full code)
-3. Any configuration changes required
-4. Step-by-step implementation instructions
-
-Format your response with clear sections and code blocks for each file.`;
-  }
-
-  private extractCodeBlocks(text: string): string[] {
-    const codeBlockRegex = /```[\s\S]*?```/g;
-    const matches = text.match(codeBlockRegex);
-    return matches || [];
-  }
-
-  async chat(
-    message: string, 
-    conversationHistory: Array<{ role: 'user' | 'assistant', content: string }>
-  ): Promise<string> {
-    try {
-      this.debugLog('request', message);
-
-      await this.client.start();
-      const session = await this.client.createSession({
-        model: 'gpt-5'
-      });
-
-      let fullResponse = '';
-      const done = new Promise<void>((resolve) => {
-        session.on((event) => {
-          if (event.type === 'assistant.message') {
-            fullResponse += event.data.content;
-          } else if (event.type === 'session.idle') {
-            resolve();
-          }
-        });
-      });
-
-      // For conversation history, we'd need to send multiple messages
-      // For now, sending just the current message
-      await session.send({ prompt: message });
-      await done;
-
-      this.debugLog('response', fullResponse);
-
-      await session.destroy();
-      await this.client.stop();
-
-      return fullResponse;
-
-    } catch (error) {
-      console.error(chalk.red('✗ Chat error:'), error);
-      return 'Error: Failed to get response from GitHub Copilot';
-    }
-  }
-
-  async streamResponse(
-    message: string,
-    onChunk: (text: string) => void
-  ): Promise<void> {
-    try {
-      this.debugLog('request', message);
-
-      await this.client.start();
-      const session = await this.client.createSession({
-        model: 'gpt-5'
-      });
-
-      let fullResponse = '';
-      const done = new Promise<void>((resolve) => {
-        session.on((event) => {
-          if (event.type === 'assistant.message') {
-            const content = event.data.content;
-            fullResponse += content;
-            onChunk(content);
-          } else if (event.type === 'session.idle') {
-            resolve();
-          }
-        });
-      });
-
-      await session.send({ prompt: message });
-      await done;
-
-      this.debugLog('response', fullResponse);
-
-      await session.destroy();
-      await this.client.stop();
-
-    } catch (error) {
-      console.error(chalk.red('✗ Stream error:'), error);
-      onChunk('\nError: Failed to stream response from GitHub Copilot');
     }
   }
 
@@ -335,6 +129,11 @@ IMPORTANT:
 - The Executive Summary must use white text (#FFFFFF) for maximum readability on dark background
 - Modified files should NOT have white background, use transparent or subtle dark tones
 - File paths should use more visible colors, like light blue (#64B5F6) or cyan (#00BCD4), NOT very faint blues
+- For code snippets, ALWAYS use nested <pre><code> tags correctly: <pre><code>your code here</code></pre>
+- NEVER use just <pre> without <code> for code blocks
+- Code blocks are automatically styled with dark background and light text
+- Keep code blocks concise and relevant, don't include entire files
+- Make sure to properly close all HTML tags
 
 Generate the HTML:`
         },
@@ -368,6 +167,11 @@ IMPORTANTE:
 - El Resumen Ejecutivo debe usar texto en color blanco (#FFFFFF) para máxima legibilidad sobre fondo oscuro
 - Los archivos modificados NO deben tener fondo blanco, usar fondo transparente o tonos oscuros sutiles
 - Las rutas de archivos deben usar colores más visibles, como azul claro (#64B5F6) o cyan (#00BCD4), NO azules muy tenues
+- Para fragmentos de código, SIEMPRE usa las etiquetas <pre><code> anidadas correctamente: <pre><code>tu código aquí</code></pre>
+- NUNCA uses solo <pre> sin <code> para bloques de código
+- Los bloques de código se estilizan automáticamente con fondo oscuro y texto claro
+- Mantén los bloques de código concisos y relevantes, no incluyas archivos completos
+- Asegúrate de cerrar correctamente todas las etiquetas HTML
 
 Genera el HTML:`
         },
@@ -401,6 +205,11 @@ ${diff.substring(0, 8000)}
 - 执行摘要必须使用白色文本（#FFFFFF）以在深色背景上获得最大可读性
 - 修改的文件不应有白色背景，使用透明或柔和的深色调
 - 文件路径应使用更明显的颜色，如浅蓝色（#64B5F6）或青色（#00BCD4），而不是非常微弱的蓝色
+- 对于代码片段，始终正确嵌套使用<pre><code>标签：<pre><code>你的代码</code></pre>
+- 永远不要在代码块中只使用<pre>而不使用<code>
+- 代码块会自动应用深色背景和浅色文本样式
+- 保持代码块简洁相关，不要包含整个文件
+- 确保正确关闭所有HTML标签
 
 生成HTML：`
         },
@@ -434,6 +243,11 @@ IMPORTANTE:
 - O Resumo Executivo deve usar texto em cor branca (#FFFFFF) para máxima legibilidade sobre fundo escuro
 - Os arquivos modificados NÃO devem ter fundo branco, use fundo transparente ou tons escuros sutis
 - Os caminhos de arquivos devem usar cores mais visíveis, como azul claro (#64B5F6) ou ciano (#00BCD4), NÃO azuis muito tênues
+- Para trechos de código, SEMPRE use as tags <pre><code> aninhadas corretamente: <pre><code>seu código aqui</code></pre>
+- NUNCA use apenas <pre> sem <code> para blocos de código
+- Os blocos de código são estilizados automaticamente com fundo escuro e texto claro
+- Mantenha os bloques de código concisos e relevantes, não inclua arquivos completos
+- Certifique-se de fechar corretamente todas as tags HTML
 
 Gere o HTML:`
         },
@@ -467,6 +281,9 @@ IMPORTANT:
 - Le Résumé Exécutif doit utiliser du texte en couleur blanche (#FFFFFF) pour une lisibilité maximale sur fond sombre
 - Les fichiers modifiés NE doivent PAS avoir de fond blanc, utilisez un fond transparent ou des tons sombres subtils
 - Les chemins de fichiers doivent utiliser des couleurs plus visibles, comme le bleu clair (#64B5F6) ou le cyan (#00BCD4), PAS de bleus très pâles
+- Pour les extraits de code, utilisez TOUJOURS les balises <pre><code> ensemble, jamais uniquement <pre>
+- Les blocs de code doivent avoir le style approprié: fond sombre (#2a2a2a), texte clair (#e0e0e0) et police à espacement fixe
+- Gardez les blocs de code concis et pertinents, n'incluez pas de fichiers complets
 
 Générez le HTML:`
         }

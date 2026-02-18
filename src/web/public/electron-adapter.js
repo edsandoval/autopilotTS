@@ -13,10 +13,28 @@
     return;
   }
 
-  // Setup Electron log listener
+  console.log('Electron API detected, setting up log listener...');
+
+  // Setup Electron log listener - this will be called when logs arrive
   window.electronAPI.onTicketLog((data) => {
-    if (window.app && window.app.handleTicketLog) {
+    console.log('Received ticket-log event:', data);
+    if (window.app && typeof window.app.handleTicketLog === 'function') {
       window.app.handleTicketLog(data);
+    } else {
+      console.warn('App not ready to handle logs yet, queueing...');
+      // Queue the log if app isn't ready
+      if (!window._pendingLogs) window._pendingLogs = [];
+      window._pendingLogs.push(data);
+    }
+  });
+
+  // Setup Autopilot progress listener
+  window.electronAPI.onAutopilotProgress((data) => {
+    console.log('Received autopilot:progress event:', data);
+    if (window.app && typeof window.app.handleAutopilotProgress === 'function') {
+      window.app.handleAutopilotProgress(data);
+    } else {
+      console.warn('App not ready to handle progress yet');
     }
   });
 
@@ -38,6 +56,16 @@
         return await window.electronAPI.createTicket(body.name, body.description);
       }
       
+      // Autopilot endpoints
+      if (endpoint === '/tickets/autopilot' && method === 'POST') {
+        return await window.electronAPI.startAutopilot();
+      }
+      
+      if (endpoint === '/tickets/autopilot/stop' && method === 'POST') {
+        return await window.electronAPI.stopAutopilot();
+      }
+      
+      // Individual ticket endpoints - check specific actions first
       if (endpoint.match(/^\/tickets\/(.+)\/start$/) && method === 'POST') {
         const id = endpoint.match(/^\/tickets\/(.+)\/start$/)[1];
         return await window.electronAPI.startTicket(id);
@@ -48,6 +76,12 @@
         return await window.electronAPI.stopTicket(id);
       }
       
+      if (endpoint.match(/^\/tickets\/(.+)\/summary$/) && method === 'GET') {
+        const id = endpoint.match(/^\/tickets\/(.+)\/summary$/)[1];
+        return await window.electronAPI.getTicketSummary(id);
+      }
+      
+      // Generic ticket operations
       if (endpoint.match(/^\/tickets\/(.+)$/) && method === 'DELETE') {
         const id = endpoint.match(/^\/tickets\/(.+)$/)[1];
         return await window.electronAPI.deleteTicket(id);

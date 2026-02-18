@@ -24,12 +24,19 @@ class AutopilotApp {
   }
 
   async init() {
+    // Expose app globally immediately for Electron adapter
+    window.app = this;
+    
     await this.loadTickets();
     await this.loadConfig();
     await this.loadModels(); // Load available models
     this.setupElectronIPC(); // Use Electron IPC instead of WebSocket
     this.setupTerminal();
     this.setupEventListeners();
+    
+    // Process any queued logs that arrived before app was ready
+    this.processQueuedLogs();
+    
     this.updateStatus('Ready - Desktop Mode');
   }
 
@@ -61,11 +68,55 @@ class AutopilotApp {
 
   // Handle ticket logs from Electron IPC
   handleTicketLog(data) {
+    console.log('handleTicketLog called with:', data);
     const { message, type, ticketId, log } = data;
     const logMessage = message || log || '';
     const logType = type || 'log';
     
-    this.writeToTerminal(logMessage, logType);
+    if (logMessage) {
+      this.writeToTerminal(logMessage, logType);
+    }
+  }
+
+  // Handle autopilot progress updates from Electron IPC
+  handleAutopilotProgress(data) {
+    console.log('handleAutopilotProgress called with:', data);
+    const { phase, current, total, percentage, currentTicketId } = data;
+    
+    // Update progress bar
+    document.getElementById('progressBar').style.width = percentage + '%';
+    
+    // Update progress text based on phase
+    let progressText = '';
+    if (phase === 'phase1') {
+      progressText = `Creando worktrees: ${current}/${total} (${percentage}%)`;
+    } else if (phase === 'phase2') {
+      progressText = `Procesando tickets: ${current}/${total} (${percentage}%)`;
+      
+      // Update current ticket info if provided
+      if (currentTicketId) {
+        const ticket = this.tickets.find(t => t.id === currentTicketId);
+        if (ticket) {
+          document.getElementById('currentTicketInfo').innerHTML = `
+            <div class="ticket-id">${ticket.id}</div>
+            <div class="ticket-name">${this.escapeHtml(ticket.name)}</div>
+          `;
+        }
+      }
+    } else if (phase === 'complete') {
+      progressText = `Completado (100%)`;
+    }
+    
+    document.getElementById('progressText').textContent = progressText;
+  }
+
+  // Process any logs that were queued before app was ready
+  processQueuedLogs() {
+    if (window._pendingLogs && window._pendingLogs.length > 0) {
+      console.log(`Processing ${window._pendingLogs.length} queued logs...`);
+      window._pendingLogs.forEach(data => this.handleTicketLog(data));
+      window._pendingLogs = [];
+    }
   }
 
   // API Methods
@@ -133,12 +184,40 @@ class AutopilotApp {
     }
     
     try {
+      // Immediate visual feedback - update ticket status optimistically
       this.updateStatus(`Starting ticket ${id}...`);
+      this.writeToTerminal(`Starting resolution for ticket ${id}...`, 'log');
+      
+      // Find and update the ticket card immediately
+      const ticketCard = document.querySelector(`.ticket-card[data-id="${id}"]`);
+      if (ticketCard) {
+        const statusEl = ticketCard.querySelector('.ticket-status');
+        if (statusEl) {
+          statusEl.textContent = 'working';
+          statusEl.className = 'ticket-status working';
+        }
+        // Add working indicator
+        const header = ticketCard.querySelector('.ticket-header > div:last-child');
+        if (header && !header.querySelector('.working-indicator')) {
+          const indicator = document.createElement('div');
+          indicator.className = 'working-indicator';
+          indicator.title = 'Copilot trabajando...';
+          indicator.textContent = '⚙️';
+          header.insertBefore(indicator, header.firstChild);
+        }
+      }
+      
+      // Make the actual API call
       await this.apiCall(`/tickets/${id}/start`, { method: 'POST' });
+      
+      // Reload tickets to get actual state
       await this.loadTickets();
-      this.showSuccess(`Ticket ${id} started! Check console for progress.`);
+      this.showSuccess(`Ticket ${id} started! Check terminal for progress.`);
     } catch (error) {
       this.updateStatus(`Failed to start ticket ${id}`);
+      this.writeToTerminal(`Error starting ticket: ${error.message}`, 'error');
+      // Reload to restore correct state
+      await this.loadTickets();
     }
   }
 
@@ -290,49 +369,22 @@ class AutopilotApp {
     try {
       this.updateStatus('Saving configuration...');
       
-      await this.apiCall('/config', {
-        method: 'POST',
-        body: JSON.stringify({ key: 'baseRepositoryPath', value: baseRepositoryPath })
-      });
+      // Send all config fields in a single request
+      // Convert empty strings to undefined to preserve default behavior
+      const configUpdate = {
+        baseRepositoryPath: baseRepositoryPath.trim() || undefined,
+        automationPath: automationPath.trim() || undefined,
+        baseBranch: baseBranch.trim() || undefined,
+        copilotModel: copilotModel || undefined,
+        debug: debug,
+        ticketCommandPrompt: ticketCommandPrompt.trim() || undefined,
+        ticketResolutionPrompt: ticketResolutionPrompt.trim() || undefined,
+        reportLanguage: reportLanguage || undefined
+      };
       
       await this.apiCall('/config', {
         method: 'POST',
-        body: JSON.stringify({ key: 'automationPath', value: automationPath })
-      });
-      
-      await this.apiCall('/config', {
-        method: 'POST',
-        body: JSON.stringify({ key: 'baseBranch', value: baseBranch })
-      });
-      
-      await this.apiCall('/config', {
-        method: 'POST',
-        body: JSON.stringify({ key: 'copilotModel', value: copilotModel })
-      });
-      
-      await this.apiCall('/config', {
-        method: 'POST',
-        body: JSON.stringify({ key: 'baseBranch', value: baseBranch })
-      });
-      
-      await this.apiCall('/config', {
-        method: 'POST',
-        body: JSON.stringify({ key: 'debug', value: debug ? 'on' : 'off' })
-      });
-      
-      await this.apiCall('/config', {
-        method: 'POST',
-        body: JSON.stringify({ key: 'ticketCommandPrompt', value: ticketCommandPrompt })
-      });
-      
-      await this.apiCall('/config', {
-        method: 'POST',
-        body: JSON.stringify({ key: 'ticketResolutionPrompt', value: ticketResolutionPrompt })
-      });
-      
-      await this.apiCall('/config', {
-        method: 'POST',
-        body: JSON.stringify({ key: 'reportLanguage', value: reportLanguage })
+        body: JSON.stringify(configUpdate)
       });
       
       this.hideConfigModal();
@@ -369,6 +421,7 @@ class AutopilotApp {
     }
     
     if (filteredTickets.length === 0) {
+      grid.classList.add('empty-grid');
       grid.innerHTML = `
         <div class="empty-state">
           <h3>No tickets found</h3>
@@ -378,6 +431,7 @@ class AutopilotApp {
       return;
     }
     
+    grid.classList.remove('empty-grid');
     grid.innerHTML = filteredTickets.map(ticket => this.renderTicketCard(ticket)).join('');
   }
 
@@ -601,25 +655,9 @@ class AutopilotApp {
         // Autopilot finished
         this.stopAutopilotPolling();
         await this.showAutopilotSummary();
-      } else if (workingTickets.length > 0) {
-        // Update current ticket info
-        const currentTicket = workingTickets[0];
-        const totalProcessed = this.tickets.filter(t => 
-          t.status === 'closed' || t.status === 'error'
-        ).length;
-        const totalTickets = this.tickets.length;
-        
-        document.getElementById('progressText').textContent = 
-          `Procesando ticket ${totalProcessed + 1} de ${totalTickets}...`;
-        
-        const progressPercent = ((totalProcessed / totalTickets) * 100).toFixed(0);
-        document.getElementById('progressBar').style.width = progressPercent + '%';
-        
-        document.getElementById('currentTicketInfo').innerHTML = `
-          <div class="ticket-id">${currentTicket.id}</div>
-          <div class="ticket-name">${this.escapeHtml(currentTicket.name)}</div>
-        `;
       }
+      // Note: Progress updates now come from autopilot:progress events
+      // instead of being calculated here
     }, 2000);
   }
 
@@ -829,7 +867,7 @@ class AutopilotApp {
 
     // Format text with timestamp
     const timestamp = new Date().toLocaleTimeString();
-    const prefix = type === 'error' ? '❌' : '▶';
+    const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️ ' : '▶';
     const formattedText = `[${timestamp}] ${prefix} ${text}`;
     
     // Write to both terminals

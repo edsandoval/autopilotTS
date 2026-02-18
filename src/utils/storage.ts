@@ -21,6 +21,12 @@ function getConfigFile(): string {
 }
 
 export class Storage {
+  // Cache for file metadata to reduce log spam
+  private static fileCache: {
+    size: number;
+    mtime: number;
+  } | null = null;
+
   private static ensureConfigExists(): void {
     const configFile = getConfigFile();
     
@@ -34,20 +40,53 @@ export class Storage {
   }
 
   static getConfig(): TicketConfig {
-    this.ensureConfigExists();
-    const data = fs.readFileSync(getConfigFile(), 'utf-8');
-    const config = JSON.parse(data);
-    
-    // Convert date strings back to Date objects
-    config.tickets = config.tickets.map((t: any) => ({
-      ...t,
-      createdAt: new Date(t.createdAt),
-      startedAt: t.startedAt ? new Date(t.startedAt) : undefined,
-      stoppedAt: t.stoppedAt ? new Date(t.stoppedAt) : undefined,
-      closedAt: t.closedAt ? new Date(t.closedAt) : undefined
-    }));
-    
-    return config;
+    try {
+      this.ensureConfigExists();
+      const configFile = getConfigFile();
+      
+      if (!fs.existsSync(configFile)) {
+        throw new Error(`Config file does not exist: ${configFile}`);
+      }
+      
+      // Check file stats to detect changes
+      const stats = fs.statSync(configFile);
+      const currentSize = stats.size;
+      const currentMtime = stats.mtimeMs;
+      
+      // Only log if file has changed or first time reading
+      const hasChanged = !this.fileCache || 
+                        this.fileCache.size !== currentSize || 
+                        this.fileCache.mtime !== currentMtime;
+      
+      if (hasChanged) {
+        console.log('[Storage] Reading tickets from:', configFile);
+        console.log('[Storage] Read', currentSize, 'bytes from config file');
+        
+        // Update cache
+        this.fileCache = { size: currentSize, mtime: currentMtime };
+      }
+      
+      const data = fs.readFileSync(configFile, 'utf-8');
+      const config = JSON.parse(data);
+      
+      if (hasChanged) {
+        console.log('[Storage] Parsed config with', config.tickets?.length || 0, 'tickets');
+      }
+      
+      // Convert date strings back to Date objects
+      config.tickets = config.tickets.map((t: any) => ({
+        ...t,
+        createdAt: new Date(t.createdAt),
+        startedAt: t.startedAt ? new Date(t.startedAt) : undefined,
+        stoppedAt: t.stoppedAt ? new Date(t.stoppedAt) : undefined,
+        closedAt: t.closedAt ? new Date(t.closedAt) : undefined
+      }));
+      
+      return config;
+    } catch (error) {
+      console.error('[Storage] Error reading config:', error);
+      throw error;
+    }
   }
 
   static saveConfig(config: TicketConfig): void {

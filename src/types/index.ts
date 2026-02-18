@@ -37,13 +37,6 @@ export interface ProjectConfig {
   reportLanguage?: string; // Language for ticket reports (default: en)
 }
 
-export interface CopilotResponse {
-  success: boolean;
-  message: string;
-  changes?: string[];
-  error?: string;
-}
-
 export interface AutopilotTicketResult {
   ticket: Ticket;
   success: boolean;

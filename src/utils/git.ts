@@ -103,6 +103,13 @@ export class GitManager {
       throw new Error('Base repository path not configured. Use: autopilot config set baseRepositoryPath <path>');
     }
 
+    // Check if worktree already exists
+    const existingWorktree = await this.worktreeExists(ticketId);
+    if (existingWorktree) {
+      console.log(chalk.blue(`📁 Using existing worktree: ${existingWorktree}`));
+      return existingWorktree;
+    }
+
     const baseBranch = ConfigManager.getBaseBranch();
     const branchName = `copilot/${ticketId}`;
     const worktreePath = path.join(automationPath, ticketId);

@@ -1,10 +1,10 @@
 @echo off
 echo ========================================
-echo   Building AutopilotTS
+echo   Building AutopilotTS Desktop App
 echo ========================================
 echo.
 
-echo [1/2] Compiling TypeScript...
+echo [1/1] Compiling TypeScript and copying assets...
 call npm run build
 
 if %ERRORLEVEL% NEQ 0 (

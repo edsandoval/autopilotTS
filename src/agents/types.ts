@@ -1,20 +1,7 @@
-import { Ticket } from '../types/index.js';
-
 /**
- * Context shared between agents during ticket resolution
+ * Agent Types
+ * This file is reserved for future agent-specific type definitions
  */
-export interface AgentContext {
-  ticket: Ticket;
-  projectPath: string;
-  debugMode: boolean;
-}
 
-/**
- * A file change made during implementation
- */
-export interface FileChange {
-  path: string;
-  action: 'created' | 'modified' | 'deleted';
-  success: boolean;
-  error?: string;
-}
+// Currently all types are defined in ../types/index.ts
+export {};

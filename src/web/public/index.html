@@ -21,6 +21,7 @@
           <div>
             <h1 class="logo">AutopilotTS</h1>
             <p class="subtitle">Powered by GitHub Copilot CLI</p>
+            <p class="version">v0.1.5</p>
           </div>
         </div>
       </div>
@@ -36,18 +37,18 @@
     <!-- Status Bar -->
     <div class="status-bar" id="statusBar">
       <span class="status-text">Ready</span>
-    </div>
-
-    <!-- Main Content -->
-    <main class="main-content">
-      <!-- Filters -->
-      <div class="filters">
+      <div class="filters" id="statusFilters">
         <button class="filter-btn active" data-filter="all" onclick="app.filterTickets('all')">All</button>
         <button class="filter-btn" data-filter="pending" onclick="app.filterTickets('pending')">Pending</button>
         <button class="filter-btn" data-filter="working" onclick="app.filterTickets('working')">Working</button>
         <button class="filter-btn" data-filter="stopped" onclick="app.filterTickets('stopped')">Stopped</button>
         <button class="filter-btn" data-filter="closed" onclick="app.filterTickets('closed')">Closed</button>
       </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- (Filters moved into status bar) -->
 
       <!-- Tickets Grid -->
       <div class="tickets-grid" id="ticketsGrid">
@@ -336,7 +337,7 @@
           <div class="form-group">
             <label for="editTicketId">Ticket ID</label>
             <input type="text" id="editTicketId" readonly disabled 
-              style="background-color: #f0f0f0; cursor: not-allowed;">
+              style="background-color: dimgray; cursor: not-allowed;">
           </div>
           <div class="form-group">
             <label for="editTicketDescription">Description</label>

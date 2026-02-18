@@ -1,18 +1,20 @@
 {
   "name": "autopilotts",
-  "version": "1.0.0",
+  "version": "0.1.5",
   "description": "AI-Powered Ticket Resolution Desktop Application",
   "type": "module",
   "main": "dist/electron-main.js",
   "scripts": {
-    "build": "tsc && copyfiles -u 1 \"src/web/public/**/*\" dist",
+    "build": "tsc && tsc --project tsconfig.electron.json && copyfiles -u 1 \"src/web/public/**/*\" dist",
     "dev": "npm run build && electron .",
     "start": "electron .",
     "watch": "tsc -w",
     "test": "vitest run",
     "test:watch": "vitest",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "diagnose": "node diagnose.mjs",
+    "verify-endpoints": "node verify-endpoints.mjs"
   },
   "keywords": [
     "electron",
@@ -29,18 +31,23 @@
     },
     "files": [
       "dist/**/*",
+      "docs/icon-*.png",
       "package.json"
     ],
+    "icon": "docs/icon-512.png",
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "docs/icon-512.png"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "docs/icon-256.png"
     },
     "linux": {
       "target": "AppImage",
-      "category": "Development"
+      "category": "Development",
+      "icon": "docs/icon-512.png"
     }
   },
   "author": "",
@@ -49,6 +56,7 @@
     "@github/copilot-sdk": "^0.1.18",
     "chalk": "^4.1.2",
     "fast-glob": "^3.3.3",
+    "marked": "^17.0.2",
     "simple-git": "^3.22.0"
   },
   "devDependencies": {
@@ -58,6 +66,7 @@
     "copyfiles": "^2.4.1",
     "electron": "^40.4.0",
     "electron-builder": "^26.7.0",
+    "sharp": "^0.34.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.3.3",

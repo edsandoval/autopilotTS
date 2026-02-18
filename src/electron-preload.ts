@@ -13,6 +13,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteTicket: (id: string) => ipcRenderer.invoke('delete-ticket', id),
   startTicket: (id: string) => ipcRenderer.invoke('start-ticket', id),
   stopTicket: (id: string) => ipcRenderer.invoke('stop-ticket', id),
+  getTicketSummary: (id: string) => ipcRenderer.invoke('get-ticket-summary', id),
+
+  // Autopilot
+  startAutopilot: () => ipcRenderer.invoke('start-autopilot'),
+  stopAutopilot: () => ipcRenderer.invoke('stop-autopilot'),
 
   // Configuration
   getConfig: () => ipcRenderer.invoke('get-config'),
@@ -31,6 +36,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeTicketLogListener: () => {
     ipcRenderer.removeAllListeners('ticket-log');
   },
+  onAutopilotProgress: (callback: (data: any) => void) => {
+    ipcRenderer.on('autopilot:progress', (_event, data) => callback(data));
+  },
+  removeAutopilotProgressListener: () => {
+    ipcRenderer.removeAllListeners('autopilot:progress');
+  },
 });
 
 // Type definitions for TypeScript
@@ -44,12 +55,17 @@ declare global {
       deleteTicket: (id: string) => Promise<{ success: boolean; error?: string }>;
       startTicket: (id: string) => Promise<{ success: boolean; error?: string }>;
       stopTicket: (id: string) => Promise<{ success: boolean; ticket?: any; error?: string }>;
+      getTicketSummary: (id: string) => Promise<{ success: boolean; summary?: string; error?: string }>;
+      startAutopilot: () => Promise<{ success: boolean; error?: string }>;
+      stopAutopilot: () => Promise<{ success: boolean; error?: string }>;
       getConfig: () => Promise<{ success: boolean; config?: any; error?: string }>;
       updateConfig: (config: any) => Promise<{ success: boolean; config?: any; error?: string }>;
       getCopilotModels: () => Promise<{ success: boolean; models?: any[]; error?: string }>;
       healthCheck: () => Promise<{ status: string; timestamp: string; electron: string; node: string }>;
       onTicketLog: (callback: (data: any) => void) => void;
       removeTicketLogListener: () => void;
+      onAutopilotProgress: (callback: (data: any) => void) => void;
+      removeAutopilotProgressListener: () => void;
     };
   }
 }

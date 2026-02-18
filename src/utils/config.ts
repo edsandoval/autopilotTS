@@ -61,9 +61,26 @@ export class ConfigManager {
   }
 
   static getConfig(): ProjectConfig {
-    this.ensureConfigExists();
-    const data = fs.readFileSync(getConfigFile(), 'utf-8');
-    return JSON.parse(data);
+    try {
+      this.ensureConfigExists();
+      const configFile = getConfigFile();
+      console.log('[ConfigManager] Reading config from:', configFile);
+      
+      if (!fs.existsSync(configFile)) {
+        throw new Error(`Config file does not exist: ${configFile}`);
+      }
+      
+      const data = fs.readFileSync(configFile, 'utf-8');
+      console.log('[ConfigManager] Read', data.length, 'bytes from config file');
+      
+      const config = JSON.parse(data);
+      console.log('[ConfigManager] Config loaded successfully');
+      
+      return config;
+    } catch (error) {
+      console.error('[ConfigManager] Error reading config:', error);
+      throw error;
+    }
   }
 
   static saveConfig(config: ProjectConfig): void {

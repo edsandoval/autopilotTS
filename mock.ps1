@@ -66,7 +66,7 @@ if ($existingMocks.Count -gt 0) {
 $ticket1 = @{
     id = 'MOCK-001'
     name = 'MOCK-001'
-    description = 'Cambiar el color de fondo (backgroundColor) de los dos botones que dicen "Sincronizar" a Color.Red en el archivo donde se encuentren'
+    description = 'Agregar un boton flotante verde con un icono de refresh en la esquina inferior derecha de la pantalla, al presionar el boton, debemos llamar a la logica de obtener los nuevos sismos'
     status = 'pending'
     createdAt = $now
 }
@@ -75,7 +75,7 @@ $ticket1 = @{
 $ticket2 = @{
     id = 'MOCK-002'
     name = 'MOCK-002'
-    description = 'Cambiar el texto del botón "Descargar visitas" a solo "Descargar" en el componente donde se defina'
+    description = 'Cambiar el color de fondo de la tarjeta segun la maganitud del sismo, si es menor a 4.0, color verde claro, si es entre 4.0 y 6.0, color amarillo claro, si es mayor a 6.0, color rojo claro'
     status = 'pending'
     createdAt = $now
 }
@@ -84,7 +84,7 @@ $ticket2 = @{
 $ticket3 = @{
     id = 'MOCK-003'
     name = 'MOCK-003'
-    description = 'Cambiar el texto del botón "Ver tutorial" a "Ver guía" en el archivo donde esté definido'
+    description = 'Mostrar en cada card la distancias del sismo a cordoba capital, Argentina'
     status = 'pending'
     createdAt = $now
 }
@@ -103,28 +103,15 @@ Write-Host ''
 Write-Host 'Created tickets:' -ForegroundColor Cyan
 Write-Host ''
 Write-Host '   1. MOCK-001' -ForegroundColor White
-Write-Host '      └─ Cambiar color de botones "Sincronizar" a rojo' -ForegroundColor Gray
 Write-Host ''
 Write-Host '   2. MOCK-002' -ForegroundColor White
-Write-Host '      └─ Cambiar "Descargar visitas" a "Descargar"' -ForegroundColor Gray
 Write-Host ''
 Write-Host '   3. MOCK-003' -ForegroundColor White
-Write-Host '      └─ Cambiar "Ver tutorial" a "Ver guía"' -ForegroundColor Gray
 Write-Host ''
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "  SUCCESS" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ''
-Write-Host 'Next steps:' -ForegroundColor Cyan
-Write-Host ''
-Write-Host '   1. View tickets:'
-Write-Host '      autopilot list'
-Write-Host ''
-Write-Host '   2. Test autopilot mode:'
-Write-Host '      autopilot ui'
-Write-Host "      Then click ""Autopilot Mode"""
-Write-Host ''
-Write-Host '   3. Delete after testing:'
 Write-Host '      .\mock-clean.ps1'
 Write-Host ''
 Write-Host 'These tickets are simple and won''t consume many tokens'

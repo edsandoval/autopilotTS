@@ -10,6 +10,15 @@ dist/
 build/
 *.tsbuildinfo
 
+# Electron build output
+release/
+out/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+
 # Configuration files (local)
 .autopilot.config.json
 .autopilot.json

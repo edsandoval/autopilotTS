@@ -107,7 +107,7 @@ export class CopilotCLI {
       flags.push('--silent');
     }
     if (options.model) {
-      flags.push(`--model ${options.model}`);
+      flags.push(`--model "${options.model}"`);
     }
 
     // Save prompt to file
@@ -185,10 +185,13 @@ export class CopilotCLI {
   ): Promise<CopilotCLIResult> {
     const prompt = this.buildPrompt(ticket);
     
+    // Check debug mode to determine if output should be silent
+    const isDebugMode = ConfigManager.isDebugEnabled();
+    
     return this.runPrompt(prompt, {
       allowAll: true,
       noAskUser: true,
-      silent: true,
+      silent: !isDebugMode, // Silent only when debug is OFF
       workingDir,
       model
     }, ticket.id);

@@ -62,8 +62,12 @@ class AutopilotApp {
         if (target && target.nodeType === Node.TEXT_NODE) target = target.parentElement;
         const btn = target && target.closest ? target.closest('button[data-action]') : null;
         if (!btn) return;
+        
         const action = btn.dataset.action;
         const id = btn.dataset.id;
+        
+        console.log('[TicketAction]', { action, id, btn });
+        
         switch (action) {
           case 'start':
             this.startTicket(id);
@@ -72,6 +76,7 @@ class AutopilotApp {
             this.stopTicket(id);
             break;
           case 'view':
+            console.log('[View] Clicked view button, disabled?', btn.classList.contains('btn-disabled'));
             if (btn.classList.contains('btn-disabled')) {
               this.noSummaryAlert();
             } else {
@@ -79,6 +84,7 @@ class AutopilotApp {
             }
             break;
           case 'edit':
+            console.log('[Edit] Calling showEditModal with id:', id);
             this.showEditModal(id);
             break;
           case 'delete':
@@ -707,8 +713,11 @@ class AutopilotApp {
   }
 
   showEditModal(id) {
+    console.log('[showEditModal] Called with id:', id);
+    console.log('[showEditModal] Current tickets:', this.tickets);
     this.closeAllModals();
     const ticket = this.tickets.find(t => t.id === id);
+    console.log('[showEditModal] Found ticket:', ticket);
     if (!ticket) {
       this.showError('Ticket not found');
       return;
@@ -756,6 +765,7 @@ class AutopilotApp {
   }
 
   async viewTicketSummary(id) {
+    console.log('[viewTicketSummary] Called with id:', id);
     try {
       this.showSummaryModal();
       document.getElementById('summaryTicketId').textContent = id;

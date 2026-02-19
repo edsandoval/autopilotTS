@@ -57,7 +57,10 @@ class AutopilotApp {
     const ticketsGrid = document.getElementById('ticketsGrid');
     if (ticketsGrid) {
       ticketsGrid.addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-action]');
+        // Be defensive: e.target may be a text node in some browsers, so normalize
+        let target = e.target;
+        if (target && target.nodeType === Node.TEXT_NODE) target = target.parentElement;
+        const btn = target && target.closest ? target.closest('button[data-action]') : null;
         if (!btn) return;
         const action = btn.dataset.action;
         const id = btn.dataset.id;

@@ -4,6 +4,8 @@ class AutopilotApp {
   constructor() {
     this.tickets = [];
     this.currentFilter = 'all';
+    this.selectedTicketType = null;
+    this.selectedEditTicketType = null;
     this.ws = null;
     this.autopilotRunning = false;
     this.autopilotInterval = null;
@@ -33,6 +35,7 @@ class AutopilotApp {
     this.setupElectronIPC(); // Use Electron IPC instead of WebSocket
     this.setupTerminal();
     this.setupEventListeners();
+    this.setupGlobalTooltips();
     
     // Process any queued logs that arrived before app was ready
     this.processQueuedLogs();
@@ -49,9 +52,123 @@ class AutopilotApp {
         this.saveConfig(e);
       });
     }
+
+    // Delegate ticket action buttons to avoid inline onclick parsing/quoting issues
+    const ticketsGrid = document.getElementById('ticketsGrid');
+    if (ticketsGrid) {
+      ticketsGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        switch (action) {
+          case 'start':
+            this.startTicket(id);
+            break;
+          case 'stop':
+            this.stopTicket(id);
+            break;
+          case 'view':
+            if (btn.classList.contains('btn-disabled')) {
+              this.noSummaryAlert();
+            } else {
+              this.viewTicketSummary(id);
+            }
+            break;
+          case 'edit':
+            this.showEditModal(id);
+            break;
+          case 'delete':
+            this.deleteTicket(id);
+            break;
+        }
+      });
+    }
     
     // Terminal footer resize handle
     this.setupTerminalResize();
+  }
+
+  // Global tooltip portal (prevents clipping by overflow parents)
+  setupGlobalTooltips() {
+    if (this._tooltipInitialized) return;
+
+    // create single global tooltip element appended to body
+    this._globalTooltip = document.createElement('div');
+    this._globalTooltip.className = 'global-tooltip';
+    this._globalTooltip.setAttribute('role', 'tooltip');
+    this._globalTooltip.style.display = 'none';
+    document.body.appendChild(this._globalTooltip);
+
+    const showFromElement = (el) => {
+      const inner = el.querySelector('.tooltip');
+      if (!inner) return;
+      this._showGlobalTooltip(el, inner.innerHTML);
+    };
+
+    const hide = () => this._hideGlobalTooltip();
+
+    document.querySelectorAll('.help-icon').forEach(icon => {
+      icon.addEventListener('mouseenter', () => showFromElement(icon));
+      icon.addEventListener('mouseleave', hide);
+      icon.addEventListener('focus', () => showFromElement(icon), true);
+      icon.addEventListener('blur', hide, true);
+      icon.addEventListener('touchstart', (e) => { e.preventDefault(); showFromElement(icon); }, { passive: false });
+    });
+
+    // hide on scroll/resize for stability
+    window.addEventListener('scroll', hide, true);
+    window.addEventListener('resize', hide);
+
+    this._tooltipInitialized = true;
+  }
+
+  _showGlobalTooltip(referenceEl, html) {
+    if (!this._globalTooltip) return;
+    const tip = this._globalTooltip;
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    tip.style.visibility = 'hidden';
+    tip.classList.remove('above', 'below', 'visible');
+
+    // position after next frame so offsetWidth/Height are correct
+    requestAnimationFrame(() => {
+      const rect = referenceEl.getBoundingClientRect();
+      const w = tip.offsetWidth;
+      const h = tip.offsetHeight;
+
+      // prefer placing above the reference; if no space, place below
+      let top = rect.top - h - 8;
+      let placement = 'above';
+      if (top < 8) {
+        top = rect.bottom + 8;
+        placement = 'below';
+      }
+
+      let left = rect.left + rect.width / 2 - w / 2;
+      const margin = 8;
+      left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
+
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+      tip.classList.add(placement === 'above' ? 'above' : 'below');
+      tip.style.visibility = 'visible';
+
+      // animate in
+      requestAnimationFrame(() => tip.classList.add('visible'));
+    });
+  }
+
+  _hideGlobalTooltip() {
+    const tip = this._globalTooltip;
+    if (!tip) return;
+    tip.classList.remove('visible');
+    setTimeout(() => {
+      tip.style.display = 'none';
+      tip.style.visibility = 'hidden';
+      tip.innerHTML = '';
+      tip.classList.remove('above', 'below');
+    }, 150);
   }
 
   // Electron IPC Setup (replaces WebSocket)
@@ -161,16 +278,18 @@ class AutopilotApp {
     
     const name = document.getElementById('ticketName').value;
     const description = document.getElementById('ticketDescription').value;
+    const type = this.selectedTicketType;
     
     try {
       this.updateStatus('Creating ticket...');
       await this.apiCall('/tickets', {
         method: 'POST',
-        body: JSON.stringify({ name, description })
+        body: JSON.stringify({ name, description, type })
       });
       
       this.hideCreateModal();
       document.getElementById('createForm').reset();
+      this.selectedTicketType = null;
       await this.loadTickets();
       this.showSuccess('Ticket created successfully!');
     } catch (error) {
@@ -340,6 +459,18 @@ class AutopilotApp {
       document.getElementById('ticketCommandPrompt').value = config.ticketCommandPrompt || defaults.ticketCommandPrompt || '';
       document.getElementById('ticketResolutionPrompt').value = config.ticketResolutionPrompt || defaults.ticketResolutionPrompt || '';
       
+      // Load per-type prompts (ticketTypes)
+      const ticketTypes = config.ticketTypes || {};
+      const setIfExists = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value || '';
+      };
+      setIfExists('ticketTypePrompt-bug', ticketTypes.bug);
+      setIfExists('ticketTypePrompt-enhancement', ticketTypes.enhancement);
+      setIfExists('ticketTypePrompt-feature', ticketTypes.feature);
+      setIfExists('ticketTypePrompt-codeReview', ticketTypes.codeReview);
+      setIfExists('ticketTypePrompt-refactor', ticketTypes.refactor);
+      
       document.getElementById('reportLanguage').value = config.reportLanguage || 'en';
       
       // Set model dropdown value if models are already loaded
@@ -365,6 +496,15 @@ class AutopilotApp {
     const ticketCommandPrompt = document.getElementById('ticketCommandPrompt').value;
     const ticketResolutionPrompt = document.getElementById('ticketResolutionPrompt').value;
     const reportLanguage = document.getElementById('reportLanguage').value;
+
+    // Per-type prompts (Ticket Types)
+    const ticketTypes = {
+      bug: document.getElementById('ticketTypePrompt-bug') ? document.getElementById('ticketTypePrompt-bug').value.trim() : undefined,
+      enhancement: document.getElementById('ticketTypePrompt-enhancement') ? document.getElementById('ticketTypePrompt-enhancement').value.trim() : undefined,
+      feature: document.getElementById('ticketTypePrompt-feature') ? document.getElementById('ticketTypePrompt-feature').value.trim() : undefined,
+      codeReview: document.getElementById('ticketTypePrompt-codeReview') ? document.getElementById('ticketTypePrompt-codeReview').value.trim() : undefined,
+      refactor: document.getElementById('ticketTypePrompt-refactor') ? document.getElementById('ticketTypePrompt-refactor').value.trim() : undefined
+    };
     
     try {
       this.updateStatus('Saving configuration...');
@@ -379,7 +519,14 @@ class AutopilotApp {
         debug: debug,
         ticketCommandPrompt: ticketCommandPrompt.trim() || undefined,
         ticketResolutionPrompt: ticketResolutionPrompt.trim() || undefined,
-        reportLanguage: reportLanguage || undefined
+        reportLanguage: reportLanguage || undefined,
+        ticketTypes: {
+          bug: ticketTypes.bug || undefined,
+          enhancement: ticketTypes.enhancement || undefined,
+          feature: ticketTypes.feature || undefined,
+          codeReview: ticketTypes.codeReview || undefined,
+          refactor: ticketTypes.refactor || undefined
+        }
       };
       
       await this.apiCall('/config', {
@@ -446,6 +593,7 @@ class AutopilotApp {
         <div class="ticket-header">
           <div class="ticket-id">${ticket.id}</div>
           <div style="display: flex; align-items: center; gap: 8px;">
+            ${ticket.type ? `<span class="ticket-type ticket-type-${ticket.type}">${this.getTypeLabel(ticket.type)}</span>` : ''}
             ${workingIndicator}
             <span class="ticket-status ${ticket.status}">${ticket.status}</span>
           </div>
@@ -464,42 +612,73 @@ class AutopilotApp {
 
   getTicketActions(ticket) {
     const actions = [];
-    
+
     if (ticket.status === 'pending' || ticket.status === 'stopped') {
-      actions.push(`<button class="btn btn-success" onclick="app.startTicket('${ticket.id}')">▶️ Start</button>`);
+      actions.push(`<button class="btn btn-success" data-action="start" data-id="${ticket.id}">▶️ Start</button>`);
     }
-    
+
     if (ticket.status === 'working') {
-      actions.push(`<button class="btn btn-warning" onclick="app.stopTicket('${ticket.id}')">⏸️ Stop</button>`);
+      actions.push(`<button class="btn btn-warning" data-action="stop" data-id="${ticket.id}">⏸️ Stop</button>`);
     }
-    
+
     // Always show eye icon, but only functional if ticket is closed and has summary
     const eyeClass = (ticket.status === 'closed' && ticket.summary) ? 'btn-info' : 'btn-disabled';
-    const eyeClick = (ticket.status === 'closed' && ticket.summary) ? `onclick="app.viewTicketSummary('${ticket.id}')"` : 'onclick="app.noSummaryAlert()"';
-    actions.push(`<button class="btn ${eyeClass}" ${eyeClick}>👁️ Ver</button>`);
-    
+    actions.push(`<button class="btn ${eyeClass}" data-action="view" data-id="${ticket.id}">👁️ Ver</button>`);
+
     // Edit button - only allow editing if ticket is not working
     if (ticket.status !== 'working') {
-      actions.push(`<button class="btn btn-info" onclick="app.showEditModal('${ticket.id}')">✏️ Edit</button>`);
+      actions.push(`<button class="btn btn-info" data-action="edit" data-id="${ticket.id}">✏️ Edit</button>`);
     }
-    
-    actions.push(`<button class="btn btn-danger" onclick="app.deleteTicket('${ticket.id}')">🗑️ Delete</button>`);
-    
+
+    actions.push(`<button class="btn btn-danger" data-action="delete" data-id="${ticket.id}">🗑️ Delete</button>`);
+
     return actions.join('');
+  }
+
+  selectTicketType(type) {
+    this.selectedTicketType = (this.selectedTicketType === type) ? null : type;
+    document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === this.selectedTicketType);
+    });
+  }
+
+  selectEditTicketType(type) {
+    this.selectedEditTicketType = (this.selectedEditTicketType === type) ? null : type;
+    document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
+    });
   }
 
   // Modal Management
   showCreateModal() {
+    this.closeAllModals();
     document.getElementById('createModal').classList.add('active');
   }
 
   hideCreateModal() {
     document.getElementById('createModal').classList.remove('active');
+    this.selectedTicketType = null;
+    document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => btn.classList.remove('active'));
   }
 
   showConfigModal() {
+    this.closeAllModals();
     this.loadConfig();
     document.getElementById('configModal').classList.add('active');
+    // Ensure General tab is active when opening
+    this.showConfigTab('general');
+  }
+
+  showConfigTab(tab) {
+    // Toggle active class on tab buttons
+    document.querySelectorAll('#configModal .tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+
+    // Show/hide tab content sections
+    document.querySelectorAll('#configModal .tab-content').forEach(content => {
+      content.style.display = (content.id === `configTab-${tab}`) ? 'block' : 'none';
+    });
   }
 
   hideConfigModal() {
@@ -507,6 +686,7 @@ class AutopilotApp {
   }
 
   showLogsModal() {
+    this.closeAllModals();
     document.getElementById('logsModal').classList.add('active');
   }
 
@@ -515,6 +695,7 @@ class AutopilotApp {
   }
 
   showSummaryModal() {
+    this.closeAllModals();
     document.getElementById('summaryModal').classList.add('active');
   }
 
@@ -523,6 +704,7 @@ class AutopilotApp {
   }
 
   showEditModal(id) {
+    this.closeAllModals();
     const ticket = this.tickets.find(t => t.id === id);
     if (!ticket) {
       this.showError('Ticket not found');
@@ -530,25 +712,36 @@ class AutopilotApp {
     }
     
     document.getElementById('editTicketId').value = ticket.id;
+    document.getElementById('editTicketName').value = ticket.name;
     document.getElementById('editTicketDescription').value = ticket.description;
+
+    this.selectedEditTicketType = ticket.type || null;
+    document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
+    });
+
     document.getElementById('editModal').classList.add('active');
   }
 
   hideEditModal() {
     document.getElementById('editModal').classList.remove('active');
+    this.selectedEditTicketType = null;
+    document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => btn.classList.remove('active'));
   }
 
   async updateTicket(event) {
     event.preventDefault();
     
     const id = document.getElementById('editTicketId').value;
+    const name = document.getElementById('editTicketName').value;
     const description = document.getElementById('editTicketDescription').value;
+    const type = this.selectedEditTicketType;
     
     try {
       this.updateStatus('Updating ticket...');
       await this.apiCall(`/tickets/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ description })
+        body: JSON.stringify({ name, description, type })
       });
       
       this.hideEditModal();
@@ -591,8 +784,13 @@ class AutopilotApp {
     alert('El resumen solo está disponible para tickets completados.');
   }
 
+  closeAllModals() {
+    document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+  }
+
   // Autopilot Mode
   async showAutopilotModal() {
+    this.closeAllModals();
     const pendingTickets = this.tickets.filter(t => t.status === 'pending');
     
     if (pendingTickets.length === 0) {
@@ -630,6 +828,7 @@ class AutopilotApp {
 
       // Show progress modal
       this.autopilotRunning = true;
+      this.closeAllModals();
       document.getElementById('autopilotProgressModal').classList.add('active');
       document.getElementById('autopilotBtn').disabled = true;
       document.getElementById('autopilotBtn').classList.add('disabled');
@@ -735,6 +934,7 @@ class AutopilotApp {
     `;
     
     document.getElementById('autopilotSummaryContent').innerHTML = summaryHtml;
+    this.closeAllModals();
     document.getElementById('autopilotSummaryModal').classList.add('active');
     
     this.updateStatus('Autopilot finalizado');
@@ -773,6 +973,17 @@ class AutopilotApp {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  getTypeLabel(type) {
+    const labels = {
+      'bug': '🐛 Bug',
+      'enhancement': '✨ Enhancement',
+      'feature': '🚀 Feature',
+      'code-review': '👁️ Code Review',
+      'refactor': '🔧 Refactor'
+    };
+    return labels[type] || type;
   }
 
   // ============================================

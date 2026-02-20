@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { Ticket, TicketConfig, TicketStatus } from '../types/index.js';
+import { Ticket, TicketConfig, TicketStatus, TicketType } from '../types/index.js';
 
 function getAutopilotDir(): string {
   // Get user home directory
@@ -105,7 +105,7 @@ export class Storage {
     );
   }
 
-  static createTicket(ticketId: string, description: string): Ticket {
+  static createTicket(ticketId: string, description: string, type?: TicketType): Ticket {
     const config = this.getConfig();
     
     const ticket: Ticket = {
@@ -113,6 +113,7 @@ export class Storage {
       name: ticketId,
       description,
       status: TicketStatus.PENDING,
+      ...(type && { type }),
       createdAt: new Date()
     };
 

@@ -53,7 +53,7 @@
       }
       
       if (endpoint === '/tickets' && method === 'POST') {
-        return await window.electronAPI.createTicket(body.name, body.description);
+        return await window.electronAPI.createTicket(body.name, body.description, body.type);
       }
       
       // Autopilot endpoints
@@ -89,7 +89,7 @@
       
       if (endpoint.match(/^\/tickets\/(.+)$/) && (method === 'PUT' || method === 'PATCH')) {
         const id = endpoint.match(/^\/tickets\/(.+)$/)[1];
-        return await window.electronAPI.updateTicket(id, body.description);
+        return await window.electronAPI.updateTicket(id, body.name, body.description, body.type);
       }
       
       if (endpoint === '/config' && method === 'GET') {

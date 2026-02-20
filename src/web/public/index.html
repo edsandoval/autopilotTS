@@ -91,6 +91,16 @@
             <textarea id="ticketDescription" required rows="6" 
               placeholder="Describe the ticket in detail..."></textarea>
           </div>
+          <div class="form-group">
+            <label>Type</label>
+            <div class="type-selector" id="ticketTypeSelector">
+              <button type="button" class="type-tag type-tag-bug" data-type="bug" onclick="app.selectTicketType('bug')">🐛 Bug</button>
+              <button type="button" class="type-tag type-tag-enhancement" data-type="enhancement" onclick="app.selectTicketType('enhancement')">✨ Enhancement</button>
+              <button type="button" class="type-tag type-tag-feature" data-type="feature" onclick="app.selectTicketType('feature')">🚀 Feature</button>
+              <button type="button" class="type-tag type-tag-code-review" data-type="code-review" onclick="app.selectTicketType('code-review')">👁️ Code Review</button>
+              <button type="button" class="type-tag type-tag-refactor" data-type="refactor" onclick="app.selectTicketType('refactor')">🔧 Refactor</button>
+            </div>
+          </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="app.hideCreateModal()">Cancel</button>
             <button type="submit" class="btn btn-primary">Create Ticket</button>
@@ -108,108 +118,180 @@
         <button class="close-btn" onclick="app.hideConfigModal()">×</button>
       </div>
       <div class="modal-body">
-        <form id="configForm">
-          <div class="form-group">
-            <div class="label-with-help">
-              <label for="baseRepositoryPath">Base Repository Path</label>
-              <span class="help-icon">
-                i
-                <span class="tooltip">The root directory path where your project repositories are stored. This is the parent folder containing your git repositories.</span>
-              </span>
+        <div class="config-tabs">
+          <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="general" onclick="app.showConfigTab('general')">General</button>
+            <button class="tab-btn" data-tab="tipo" onclick="app.showConfigTab('tipo')">Ticket Types</button>
+          </div>
+
+          <form id="configForm">
+            <div class="tab-panel">
+              <div class="tab-content" id="configTab-general">
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="baseRepositoryPath">Base Repository Path</label>
+                    <span class="help-icon">
+                      i
+                      <span class="tooltip">The root directory path where your project repositories are stored. This is the parent folder containing your git repositories.</span>
+                    </span>
+                  </div>
+                  <input type="text" id="baseRepositoryPath" placeholder="Base repository folder path">
+                </div>
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="automationPath">Automation Path</label>
+                    <span class="help-icon">
+                      i
+                      <span class="tooltip">The directory path where Autopilot stores ticket data and configuration files. Leave empty to use the current directory.</span>
+                    </span>
+                  </div>
+                  <input type="text" id="automationPath" placeholder="Automation folder path">
+                </div>
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="baseBranch">Base Branch</label>
+                    <span class="help-icon">
+                      i
+                      <span class="tooltip">The default git branch to use as the base for creating new branches when working on tickets. Typically 'develop' or 'main'.</span>
+                    </span>
+                  </div>
+                  <input type="text" id="baseBranch" placeholder="develop">
+                </div>
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="copilotModel">Copilot Model</label>
+                    <span class="help-icon">
+                      i
+                      <span class="tooltip">The GitHub Copilot AI model to use for code generation and assistance. Different models may have different capabilities and performance.</span>
+                    </span>
+                  </div>
+                  <select id="copilotModel" class="model-select">
+                    <option value="">Loading models...</option>
+                  </select>
+                  <button type="button" class="btn-refresh-models" onclick="app.refreshModels()" title="Refresh models list">
+                    🔄 Refresh
+                  </button>
+                </div>
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="reportLanguage">Report Language</label>
+                    <span class="help-icon">
+                      i
+                      <span class="tooltip">The language to use for generating ticket resolution reports and status messages in the terminal output.</span>
+                    </span>
+                  </div>
+                  <select id="reportLanguage" class="model-select">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="zh">中文 (Chinese)</option>
+                    <option value="pt">Português</option>
+                    <option value="fr">Français</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="ticketCommandPrompt">Ticket Command Prompt</label>
+                    <span class="help-icon">
+                      i
+                      <span class="tooltip">Custom prompt template for ticket command execution. Use ${FILE} placeholder to reference the ticket file location.</span>
+                    </span>
+                  </div>
+                  <textarea id="ticketCommandPrompt" rows="4" 
+                    placeholder="Enter prompt for ticket command execution (supports ${FILE} placeholder)"></textarea>
+                </div>
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="ticketResolutionPrompt">Ticket Resolution Prompt</label>
+                    <span class="help-icon">
+                      i
+                      <span class="tooltip">Custom prompt template for AI-powered ticket resolution. Use ${ID} and ${DESCRIPTION} placeholders to inject ticket details.</span>
+                    </span>
+                  </div>
+                  <textarea id="ticketResolutionPrompt" rows="6" 
+                    placeholder="Enter prompt for ticket resolution (supports ${ID}, ${DESCRIPTION} placeholders)"></textarea>
+                </div>
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="debugMode">
+                      Enable Debug Mode
+                    </label>
+                    <span class="help-icon">
+                      i
+                      <span class="tooltip">Enable verbose logging and detailed debug output for troubleshooting. Shows detailed Copilot SDK requests/responses.</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-content" id="configTab-tipo" style="display:none">
+  
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="ticketTypePrompt-bug">🐛 Bug</label>
+                    <span class="help-icon" tabindex="0">
+                      i
+                      <span class="tooltip">Use for bug-fix tickets: ask the agent to find root cause, apply a minimal focused fix, and include a short analysis in the report. Use ${ID} and ${DESCRIPTION} where needed.</span>
+                    </span>
+                  </div>
+                  <textarea id="ticketTypePrompt-bug" rows="3" placeholder="Prompt for Bug tickets (use ${ID}, ${DESCRIPTION})"></textarea>
+                </div>
+
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="ticketTypePrompt-enhancement">✨ Enhancement</label>
+                    <span class="help-icon" tabindex="0">
+                      i
+                      <span class="tooltip">Use for enhancements: extend or improve existing functionality while keeping backward compatibility; include approach and changed files in the report.</span>
+                    </span>
+                  </div>
+                  <textarea id="ticketTypePrompt-enhancement" rows="3" placeholder="Prompt for Enhancement tickets"></textarea>
+                </div>
+
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="ticketTypePrompt-feature">🚀 Feature</label>
+                    <span class="help-icon" tabindex="0">
+                      i
+                      <span class="tooltip">Use for new features: identify integration points, implement incrementally and document how the feature integrates with existing modules.</span>
+                    </span>
+                  </div>
+                  <textarea id="ticketTypePrompt-feature" rows="3" placeholder="Prompt for Feature tickets"></textarea>
+                </div>
+
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="ticketTypePrompt-codeReview">🔍 Code Review</label>
+                    <span class="help-icon" tabindex="0">
+                      i
+                      <span class="tooltip">Use for code review tasks: analyze code for bugs, style, security and performance; propose fixes and list suggested changes in the report.</span>
+                    </span>
+                  </div>
+                  <textarea id="ticketTypePrompt-codeReview" rows="3" placeholder="Prompt for Code Review tickets"></textarea>
+                </div>
+
+                <div class="form-group">
+                  <div class="label-with-help">
+                    <label for="ticketTypePrompt-refactor">♻️ Refactor</label>
+                    <span class="help-icon" tabindex="0">
+                      i
+                      <span class="tooltip">Use for refactors: improve code structure and readability without changing behavior; include motivation and files refactored in the report.</span>
+                    </span>
+                  </div>
+                  <textarea id="ticketTypePrompt-refactor" rows="3" placeholder="Prompt for Refactor tickets"></textarea>
+                </div>
+              </div>
             </div>
-            <input type="text" id="baseRepositoryPath" placeholder="Base repository folder path">
-          </div>
-          <div class="form-group">
-            <div class="label-with-help">
-              <label for="automationPath">Automation Path</label>
-              <span class="help-icon">
-                i
-                <span class="tooltip">The directory path where Autopilot stores ticket data and configuration files. Leave empty to use the current directory.</span>
-              </span>
-            </div>
-            <input type="text" id="automationPath" placeholder="Automation folder path">
-          </div>
-          <div class="form-group">
-            <div class="label-with-help">
-              <label for="baseBranch">Base Branch</label>
-              <span class="help-icon">
-                i
-                <span class="tooltip">The default git branch to use as the base for creating new branches when working on tickets. Typically 'develop' or 'main'.</span>
-              </span>
-            </div>
-            <input type="text" id="baseBranch" placeholder="develop">
-          </div>
-          <div class="form-group">
-            <div class="label-with-help">
-              <label for="copilotModel">Copilot Model</label>
-              <span class="help-icon">
-                i
-                <span class="tooltip">The GitHub Copilot AI model to use for code generation and assistance. Different models may have different capabilities and performance.</span>
-              </span>
-            </div>
-            <select id="copilotModel" class="model-select">
-              <option value="">Loading models...</option>
-            </select>
-            <button type="button" class="btn-refresh-models" onclick="app.refreshModels()" title="Refresh models list">
-              🔄 Refresh
-            </button>
-          </div>
-          <div class="form-group">
-            <div class="label-with-help">
-              <label for="reportLanguage">Report Language</label>
-              <span class="help-icon">
-                i
-                <span class="tooltip">The language to use for generating ticket resolution reports and status messages in the terminal output.</span>
-              </span>
-            </div>
-            <select id="reportLanguage" class="model-select">
-              <option value="en">English</option>
-              <option value="es">Español</option>
-              <option value="zh">中文 (Chinese)</option>
-              <option value="pt">Português</option>
-              <option value="fr">Français</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <div class="label-with-help">
-              <label for="ticketCommandPrompt">Ticket Command Prompt</label>
-              <span class="help-icon">
-                i
-                <span class="tooltip">Custom prompt template for ticket command execution. Use ${FILE} placeholder to reference the ticket file location.</span>
-              </span>
-            </div>
-            <textarea id="ticketCommandPrompt" rows="4" 
-              placeholder="Enter prompt for ticket command execution (supports ${FILE} placeholder)"></textarea>
-          </div>
-          <div class="form-group">
-            <div class="label-with-help">
-              <label for="ticketResolutionPrompt">Ticket Resolution Prompt</label>
-              <span class="help-icon">
-                i
-                <span class="tooltip">Custom prompt template for AI-powered ticket resolution. Use ${ID} and ${DESCRIPTION} placeholders to inject ticket details.</span>
-              </span>
-            </div>
-            <textarea id="ticketResolutionPrompt" rows="6" 
-              placeholder="Enter prompt for ticket resolution (supports ${ID}, ${DESCRIPTION} placeholders)"></textarea>
-          </div>
-          <div class="form-group">
-            <div class="label-with-help">
-              <label class="checkbox-label">
-                <input type="checkbox" id="debugMode">
-                Enable Debug Mode
-              </label>
-              <span class="help-icon">
-                i
-                <span class="tooltip">Enable verbose logging and detailed debug output for troubleshooting. Shows detailed Copilot SDK requests/responses.</span>
-              </span>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="btn btn-secondary" onclick="app.hideConfigModal()">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Config</button>
-          </div>
-        </form>
+
       </div>
+
+      <div class="modal-footer">
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.hideConfigModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Config</button>
+        </div>
+      </div>
+      </form>
     </div>
   </div>
 
@@ -340,9 +422,23 @@
               style="background-color: dimgray; cursor: not-allowed;">
           </div>
           <div class="form-group">
+            <label for="editTicketName">Name</label>
+            <input type="text" id="editTicketName" required placeholder="Ticket name...">
+          </div>
+          <div class="form-group">
             <label for="editTicketDescription">Description</label>
             <textarea id="editTicketDescription" required rows="6" 
               placeholder="Update the ticket description..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Type</label>
+            <div class="type-selector" id="editTicketTypeSelector">
+              <button type="button" class="type-tag type-tag-bug" data-type="bug" onclick="app.selectEditTicketType('bug')">🐛 Bug</button>
+              <button type="button" class="type-tag type-tag-enhancement" data-type="enhancement" onclick="app.selectEditTicketType('enhancement')">✨ Enhancement</button>
+              <button type="button" class="type-tag type-tag-feature" data-type="feature" onclick="app.selectEditTicketType('feature')">🚀 Feature</button>
+              <button type="button" class="type-tag type-tag-code-review" data-type="code-review" onclick="app.selectEditTicketType('code-review')">👁️ Code Review</button>
+              <button type="button" class="type-tag type-tag-refactor" data-type="refactor" onclick="app.selectEditTicketType('refactor')">🔧 Refactor</button>
+            </div>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="app.hideEditModal()">Cancel</button>

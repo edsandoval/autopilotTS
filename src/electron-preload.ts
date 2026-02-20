@@ -6,10 +6,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Ticket management
   getAllTickets: () => ipcRenderer.invoke('get-all-tickets'),
   getTicket: (id: string) => ipcRenderer.invoke('get-ticket', id),
-  createTicket: (name: string, description: string) => 
-    ipcRenderer.invoke('create-ticket', name, description),
-  updateTicket: (id: string, description: string) => 
-    ipcRenderer.invoke('update-ticket', id, description),
+  createTicket: (name: string, description: string, type?: string) => 
+    ipcRenderer.invoke('create-ticket', name, description, type),
+  updateTicket: (id: string, name: string, description: string, type?: string) => 
+    ipcRenderer.invoke('update-ticket', id, name, description, type),
   deleteTicket: (id: string) => ipcRenderer.invoke('delete-ticket', id),
   startTicket: (id: string) => ipcRenderer.invoke('start-ticket', id),
   stopTicket: (id: string) => ipcRenderer.invoke('stop-ticket', id),
@@ -50,8 +50,8 @@ declare global {
     electronAPI: {
       getAllTickets: () => Promise<{ success: boolean; tickets?: any[]; error?: string }>;
       getTicket: (id: string) => Promise<{ success: boolean; ticket?: any; error?: string }>;
-      createTicket: (name: string, description: string) => Promise<{ success: boolean; ticket?: any; error?: string }>;
-      updateTicket: (id: string, description: string) => Promise<{ success: boolean; ticket?: any; error?: string }>;
+      createTicket: (name: string, description: string, type?: string) => Promise<{ success: boolean; ticket?: any; error?: string }>;
+      updateTicket: (id: string, name: string, description: string, type?: string) => Promise<{ success: boolean; ticket?: any; error?: string }>;
       deleteTicket: (id: string) => Promise<{ success: boolean; error?: string }>;
       startTicket: (id: string) => Promise<{ success: boolean; error?: string }>;
       stopTicket: (id: string) => Promise<{ success: boolean; ticket?: any; error?: string }>;

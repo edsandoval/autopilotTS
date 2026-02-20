@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import type { ProjectConfig } from '../types/index.js';
+import { ConfigManager } from '../utils/config.js';
 
 describe('Config - File Operations', () => {
   let testDir: string;
@@ -78,5 +79,34 @@ describe('Config - File Operations', () => {
     expect(existsSync(configFile)).toBe(true);
     const content = readFileSync(configFile, 'utf8');
     expect(content).toContain('debug');
+  });
+
+  it('should persist ticketTypes object in config', () => {
+    const config: ProjectConfig = {
+      debug: false,
+      ticketTypes: {
+        bug: 'Prompt for bug',
+        enhancement: 'Prompt for enhancement',
+        feature: 'Prompt for feature',
+        codeReview: 'Prompt for code review',
+        refactor: 'Prompt for refactor'
+      }
+    };
+
+    writeFileSync(configFile, JSON.stringify(config, null, 2));
+    const loaded: ProjectConfig = JSON.parse(readFileSync(configFile, 'utf8'));
+
+    expect(loaded.ticketTypes).toBeDefined();
+    expect(loaded.ticketTypes.bug).toBe('Prompt for bug');
+    expect(loaded.ticketTypes.codeReview).toBe('Prompt for code review');
+  });
+
+  it('ConfigManager.getTicketTypes returns default prompts', () => {
+    const types = ConfigManager.getTicketTypes();
+    expect(types.bug).toContain('BUG FIX');
+    expect(types.enhancement).toContain('ENHANCEMENT');
+    expect(types.feature).toContain('NEW FEATURE');
+    expect(types.codeReview).toContain('CODE REVIEW');
+    expect(types.refactor).toContain('REFACTOR');
   });
 });

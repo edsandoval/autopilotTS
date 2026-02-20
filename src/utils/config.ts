@@ -23,6 +23,14 @@ Fix the following issue in the code.
 - Keep changes minimal
 - Apply changes directly to the code`;
 
+// Default per-type prompts used when ticketTypes are not configured
+const DEFAULT_TICKET_TYPE_PROMPTS: { [k: string]: string } = {
+  bug: `🐛 This task is a BUG FIX. Identify the root cause of the reported behavior and fix it. Before writing any code, add a brief analysis of what is failing and why to the final report. Keep the diff focused and minimal — avoid touching unrelated code. At the end, leave a report detailing: root cause found, changes made, and files modified.`,
+  enhancement: `✨ This task is an ENHANCEMENT to existing functionality. Extend or improve the feature respecting the existing architecture and patterns. If you introduce new parameters, methods or config, make them backward-compatible. At the end, leave a report detailing: what was extended, approach taken, and files modified.`,
+  feature: `🚀 This task is a NEW FEATURE. Identify where in the codebase this fits and integrate it following the project's conventions for structure, naming and patterns. Build incrementally and prefer small, composable pieces. Do not modify unrelated code. At the end, leave a report detailing: what was built, how it integrates with existing modules, and files modified.`,
+  codeReview: `🔍 This task is a CODE REVIEW. Analyze the code and identify: bugs or logic errors, security concerns, performance issues, readability problems, and deviations from the project's patterns. Apply the fixes you consider necessary and justified. At the end, leave a report detailing: issues found, changes applied, and files modified.`,
+  refactor: `♻️ This task is a REFACTOR. Behavior must remain identical before and after — do not introduce new functionality. Focus on reducing complexity, improving naming, eliminating duplication, and aligning with existing patterns. At the end, leave a report detailing: what was refactored, reasoning behind each change, and files modified.`
+};
 function getAutopilotDir(): string {
   // Get user home directory
   const homeDir = os.homedir();
@@ -53,9 +61,16 @@ export class ConfigManager {
         copilotModel: 'gpt-4o',
         ticketCommandPrompt: DEFAULT_TICKET_COMMAND_PROMPT,
         ticketResolutionPrompt: DEFAULT_TICKET_RESOLUTION_PROMPT,
-        reportLanguage: 'en'
+        reportLanguage: 'en',
+        ticketTypes: {
+          bug: DEFAULT_TICKET_TYPE_PROMPTS.bug,
+          enhancement: DEFAULT_TICKET_TYPE_PROMPTS.enhancement,
+          feature: DEFAULT_TICKET_TYPE_PROMPTS.feature,
+          codeReview: DEFAULT_TICKET_TYPE_PROMPTS.codeReview,
+          refactor: DEFAULT_TICKET_TYPE_PROMPTS.refactor
+        }
       };
-      
+
       fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2));
     }
   }
@@ -76,6 +91,25 @@ export class ConfigManager {
       const config = JSON.parse(data);
       console.log('[ConfigManager] Config loaded successfully');
       
+      // Migration: ensure ticketTypes keys exist (do not overwrite explicit user values)
+      const ticketTypes = config.ticketTypes || {};
+      let migrated = false;
+      for (const key of ['bug','enhancement','feature','codeReview','refactor']) {
+        if (typeof ticketTypes[key] === 'undefined') {
+          ticketTypes[key] = DEFAULT_TICKET_TYPE_PROMPTS[key];
+          migrated = true;
+        }
+      }
+      if (!config.ticketTypes) config.ticketTypes = ticketTypes;
+      if (migrated) {
+        try {
+          fs.writeFileSync(getConfigFile(), JSON.stringify(config, null, 2));
+          console.log('[ConfigManager] Migrated config to include ticketTypes defaults');
+        } catch (e) {
+          console.warn('[ConfigManager] Failed to persist migrated config:', e);
+        }
+      }
+
       return config;
     } catch (error) {
       console.error('[ConfigManager] Error reading config:', error);
@@ -185,9 +219,30 @@ export class ConfigManager {
     this.saveConfig(config);
   }
 
+  /**
+   * Return the configured per-type prompts (always returns object with keys).
+   */
+  static getTicketTypes(): { bug: string; enhancement: string; feature: string; codeReview: string; refactor: string } {
+    const config = this.getConfig();
+    const tt = config.ticketTypes || {};
+    return {
+      bug: (Object.prototype.hasOwnProperty.call(tt, 'bug') ? tt.bug : DEFAULT_TICKET_TYPE_PROMPTS.bug) || DEFAULT_TICKET_TYPE_PROMPTS.bug,
+      enhancement: (Object.prototype.hasOwnProperty.call(tt, 'enhancement') ? tt.enhancement : DEFAULT_TICKET_TYPE_PROMPTS.enhancement) || DEFAULT_TICKET_TYPE_PROMPTS.enhancement,
+      feature: (Object.prototype.hasOwnProperty.call(tt, 'feature') ? tt.feature : DEFAULT_TICKET_TYPE_PROMPTS.feature) || DEFAULT_TICKET_TYPE_PROMPTS.feature,
+      codeReview: (Object.prototype.hasOwnProperty.call(tt, 'codeReview') ? tt.codeReview : DEFAULT_TICKET_TYPE_PROMPTS.codeReview) || DEFAULT_TICKET_TYPE_PROMPTS.codeReview,
+      refactor: (Object.prototype.hasOwnProperty.call(tt, 'refactor') ? tt.refactor : DEFAULT_TICKET_TYPE_PROMPTS.refactor) || DEFAULT_TICKET_TYPE_PROMPTS.refactor
+    };
+  }
+
   static getReportLanguage(): string {
     const config = this.getConfig();
     return config.reportLanguage || 'en';
+  }
+
+  static setTicketTypes(ticketTypes: Partial<{ bug: string; enhancement: string; feature: string; codeReview: string; refactor: string }>): void {
+    const config = this.getConfig();
+    config.ticketTypes = { ...(config.ticketTypes || {}), ...(ticketTypes as any) };
+    this.saveConfig(config);
   }
 
   static setReportLanguage(language: string): void {

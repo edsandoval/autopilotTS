@@ -719,8 +719,20 @@ class AutopilotApp {
   }
 
   showSummaryModal() {
+    console.log('[showSummaryModal] Called');
     this.closeAllModals();
-    document.getElementById('summaryModal').classList.add('active');
+    const summaryModal = document.getElementById('summaryModal');
+    console.log('[showSummaryModal] summaryModal element:', summaryModal);
+    if (summaryModal) {
+      // Use setTimeout to ensure this happens AFTER the current click event completes
+      setTimeout(() => {
+        console.log('[showSummaryModal] Adding active class (delayed)');
+        summaryModal.classList.add('active');
+        console.log('[showSummaryModal] Modal classList after add:', summaryModal.classList.toString());
+      }, 0);
+    } else {
+      console.error('[showSummaryModal] summaryModal element NOT FOUND!');
+    }
   }
 
   hideSummaryModal() {
@@ -747,7 +759,18 @@ class AutopilotApp {
       btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
     });
 
-    document.getElementById('editModal').classList.add('active');
+    const editModal = document.getElementById('editModal');
+    console.log('[showEditModal] editModal element:', editModal);
+    if (editModal) {
+      // Use setTimeout to ensure this happens AFTER the current click event completes
+      setTimeout(() => {
+        console.log('[showEditModal] Adding active class (delayed)');
+        editModal.classList.add('active');
+        console.log('[showEditModal] Modal classList after add:', editModal.classList.toString());
+      }, 0);
+    } else {
+      console.error('[showEditModal] editModal element NOT FOUND!');
+    }
   }
 
   hideEditModal() {
@@ -813,7 +836,13 @@ class AutopilotApp {
   }
 
   closeAllModals() {
-    document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+    console.log('[closeAllModals] Called');
+    const activeModals = document.querySelectorAll('.modal.active');
+    console.log('[closeAllModals] Found active modals:', activeModals.length, activeModals);
+    activeModals.forEach(m => {
+      console.log('[closeAllModals] Removing active from:', m.id);
+      m.classList.remove('active');
+    });
   }
 
   // Autopilot Mode
@@ -1216,12 +1245,14 @@ class AutopilotApp {
 const app = new AutopilotApp();
 
 // Close modals when clicking outside
-window.onclick = (event) => {
+window.addEventListener('click', (event) => {
+  console.log('[window.onclick] Event fired', event.target);
   // Only close if clicking directly on the modal backdrop, not its children
   if (event.target.classList.contains('modal') && event.target === event.currentTarget) {
+    console.log('[window.onclick] Closing modal:', event.target.id);
     event.target.classList.remove('active');
   }
-};
+}, true); // Use capture phase
 
 // Refresh tickets every 10 seconds
 setInterval(() => {

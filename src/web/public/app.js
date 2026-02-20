@@ -78,8 +78,9 @@ class AutopilotApp {
         
         console.log('[TicketAction]', { action, id, btn });
         
-        // Stop propagation to prevent window.onclick from interfering
+        // CRITICAL: Stop propagation AND prevent default
         e.stopPropagation();
+        e.preventDefault();
         
         switch (action) {
           case 'start':
@@ -719,20 +720,8 @@ class AutopilotApp {
   }
 
   showSummaryModal() {
-    console.log('[showSummaryModal] Called');
-    const summaryModal = document.getElementById('summaryModal');
-    console.log('[showSummaryModal] summaryModal element:', summaryModal);
-    if (summaryModal) {
-      this.closeAllModals('summaryModal'); // Don't close summaryModal itself
-      // Use setTimeout to ensure this happens AFTER the current click event completes
-      setTimeout(() => {
-        console.log('[showSummaryModal] Adding active class (delayed)');
-        summaryModal.classList.add('active');
-        console.log('[showSummaryModal] Modal classList after add:', summaryModal.classList.toString());
-      }, 0);
-    } else {
-      console.error('[showSummaryModal] summaryModal element NOT FOUND!');
-    }
+    this.closeAllModals();
+    document.getElementById('summaryModal').classList.add('active');
   }
 
   hideSummaryModal() {
@@ -740,10 +729,8 @@ class AutopilotApp {
   }
 
   showEditModal(id) {
-    console.log('[showEditModal] Called with id:', id);
-    console.log('[showEditModal] Current tickets:', this.tickets);
+    this.closeAllModals();
     const ticket = this.tickets.find(t => t.id === id);
-    console.log('[showEditModal] Found ticket:', ticket);
     if (!ticket) {
       this.showError('Ticket not found');
       return;
@@ -758,19 +745,7 @@ class AutopilotApp {
       btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
     });
 
-    const editModal = document.getElementById('editModal');
-    console.log('[showEditModal] editModal element:', editModal);
-    if (editModal) {
-      this.closeAllModals('editModal'); // Don't close editModal itself
-      // Use setTimeout to ensure this happens AFTER the current click event completes
-      setTimeout(() => {
-        console.log('[showEditModal] Adding active class (delayed)');
-        editModal.classList.add('active');
-        console.log('[showEditModal] Modal classList after add:', editModal.classList.toString());
-      }, 0);
-    } else {
-      console.error('[showEditModal] editModal element NOT FOUND!');
-    }
+    document.getElementById('editModal').classList.add('active');
   }
 
   hideEditModal() {
@@ -835,18 +810,8 @@ class AutopilotApp {
     alert('El resumen solo está disponible para tickets completados.');
   }
 
-  closeAllModals(exceptModalId) {
-    console.log('[closeAllModals] Called, except:', exceptModalId);
-    const activeModals = document.querySelectorAll('.modal.active');
-    console.log('[closeAllModals] Found active modals:', activeModals.length, activeModals);
-    activeModals.forEach(m => {
-      if (exceptModalId && m.id === exceptModalId) {
-        console.log('[closeAllModals] Skipping:', m.id);
-        return;
-      }
-      console.log('[closeAllModals] Removing active from:', m.id);
-      m.classList.remove('active');
-    });
+  closeAllModals() {
+    document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
   }
 
   // Autopilot Mode

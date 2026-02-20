@@ -6,7 +6,7 @@ import { Storage } from './utils/storage.js';
 import { ConfigManager } from './utils/config.js';
 import { GitManager } from './utils/git.js';
 import { TicketResolverCLI } from './agents/TicketResolverCLI.js';
-import { Ticket, TicketStatus } from './types/index.js';
+import { Ticket, TicketStatus, TicketType } from './types/index.js';
 import { LogInterceptor } from './utils/log-interceptor.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -76,18 +76,17 @@ function createWindow() {
   mainWindow.loadFile(indexPath);
 
   // Remove default application menu so the native menu bar (File/Edit/View...) is hidden
-  try {
-    Menu.setApplicationMenu(null);
-    // Also ensure the BrowserWindow menu bar is hidden (Windows/Linux)
-    mainWindow.setMenuBarVisibility(false);
-  } catch (err) {
-    console.warn('Failed to remove application menu:', err);
-  }
+  // TEMPORARILY ENABLED FOR DEBUGGING
+  // try {
+  //   Menu.setApplicationMenu(null);
+  //   // Also ensure the BrowserWindow menu bar is hidden (Windows/Linux)
+  //   mainWindow.setMenuBarVisibility(false);
+  // } catch (err) {
+  //   console.warn('Failed to remove application menu:', err);
+  // }
 
-  // Open DevTools in development
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
-  }
+  // Open DevTools in development OR for debugging
+  mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     // Stop log interceptor when window closes
@@ -274,22 +273,24 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMain.handle('create-ticket', async (_event, name: string, description: string) => {
+  ipcMain.handle('create-ticket', async (_event, name: string, description: string, type?: TicketType) => {
     try {
-      const ticket = Storage.createTicket(name, description);
+      const ticket = Storage.createTicket(name, description, type);
       return { success: true, ticket };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
   });
 
-  ipcMain.handle('update-ticket', async (_event, id: string, description: string) => {
+  ipcMain.handle('update-ticket', async (_event, id: string, name: string, description: string, type?: string) => {
     try {
       const ticket = Storage.getTicket(id);
       if (!ticket) {
         throw new Error('Ticket not found');
       }
-      Storage.updateTicket(id, { description });
+      const updates: Partial<Ticket> = { name, description };
+      if (type !== undefined) updates.type = type as Ticket['type'];
+      Storage.updateTicket(id, updates);
       const updatedTicket = Storage.getTicket(id);
       return { success: true, ticket: updatedTicket };
     } catch (error) {

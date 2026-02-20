@@ -1247,12 +1247,20 @@ const app = new AutopilotApp();
 // Close modals when clicking outside
 window.addEventListener('click', (event) => {
   console.log('[window.onclick] Event fired', event.target);
-  // Only close if clicking directly on the modal backdrop, not its children
-  if (event.target.classList.contains('modal') && event.target === event.currentTarget) {
-    console.log('[window.onclick] Closing modal:', event.target.id);
-    event.target.classList.remove('active');
+  
+  // Don't interfere with button clicks or clicks inside modal content
+  const target = event.target;
+  if (target.closest('button') || target.closest('.modal-content')) {
+    console.log('[window.onclick] Ignoring - clicked on button or modal content');
+    return;
   }
-}, true); // Use capture phase
+  
+  // Only close if clicking directly on the modal backdrop
+  if (target.classList && target.classList.contains('modal')) {
+    console.log('[window.onclick] Closing modal:', target.id);
+    target.classList.remove('active');
+  }
+});
 
 // Refresh tickets every 10 seconds
 setInterval(() => {

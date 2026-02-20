@@ -68,6 +68,9 @@ class AutopilotApp {
         
         console.log('[TicketAction]', { action, id, btn });
         
+        // Stop propagation to prevent window.onclick from interfering
+        e.stopPropagation();
+        
         switch (action) {
           case 'start':
             this.startTicket(id);
@@ -1202,7 +1205,8 @@ const app = new AutopilotApp();
 
 // Close modals when clicking outside
 window.onclick = (event) => {
-  if (event.target.classList.contains('modal')) {
+  // Only close if clicking directly on the modal backdrop, not its children
+  if (event.target.classList.contains('modal') && event.target === event.currentTarget) {
     event.target.classList.remove('active');
   }
 };

@@ -720,8 +720,21 @@ class AutopilotApp {
   }
 
   showSummaryModal() {
-    this.closeAllModals();
-    document.getElementById('summaryModal').classList.add('active');
+    try {
+      console.log('[showSummaryModal] Called - START');
+      this.closeAllModals();
+      document.getElementById('summaryModal').classList.add('active');
+      const modal = document.getElementById('summaryModal');
+      console.log('[showSummaryModal] Modal element:', modal);
+      if (!modal) {
+        console.error('[showSummaryModal] summaryModal NOT FOUND in DOM!');
+        return;
+      }
+      modal.classList.add('active');
+      console.log('[showSummaryModal] classList:', modal.classList.toString());
+    } catch (error) {
+      console.error('[showSummaryModal] ERROR:', error);
+    }
   }
 
   hideSummaryModal() {
@@ -729,23 +742,36 @@ class AutopilotApp {
   }
 
   showEditModal(id) {
-    this.closeAllModals();
-    const ticket = this.tickets.find(t => t.id === id);
-    if (!ticket) {
-      this.showError('Ticket not found');
-      return;
+    try {
+      console.log('[showEditModal] Called - START, id:', id);
+      this.closeAllModals();
+      const ticket = this.tickets.find(t => t.id === id);
+      console.log('[showEditModal] Found ticket:', ticket);
+      if (!ticket) {
+        this.showError('Ticket not found');
+        return;
+      }
+      
+      document.getElementById('editTicketId').value = ticket.id;
+      document.getElementById('editTicketName').value = ticket.name;
+      document.getElementById('editTicketDescription').value = ticket.description;
+
+      this.selectedEditTicketType = ticket.type || null;
+      document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
+      });
+
+      const modal = document.getElementById('editModal');
+      console.log('[showEditModal] Modal element:', modal);
+      if (!modal) {
+        console.error('[showEditModal] editModal NOT FOUND in DOM!');
+        return;
+      }
+      modal.classList.add('active');
+      console.log('[showEditModal] classList:', modal.classList.toString());
+    } catch (error) {
+      console.error('[showEditModal] ERROR:', error);
     }
-    
-    document.getElementById('editTicketId').value = ticket.id;
-    document.getElementById('editTicketName').value = ticket.name;
-    document.getElementById('editTicketDescription').value = ticket.description;
-
-    this.selectedEditTicketType = ticket.type || null;
-    document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
-    });
-
-    document.getElementById('editModal').classList.add('active');
   }
 
   hideEditModal() {

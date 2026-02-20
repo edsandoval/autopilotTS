@@ -44,6 +44,8 @@ class AutopilotApp {
   }
 
   setupEventListeners() {
+    console.log('[setupEventListeners] Starting setup...');
+    
     // Config form submit
     const configForm = document.getElementById('configForm');
     if (configForm) {
@@ -55,12 +57,20 @@ class AutopilotApp {
 
     // Delegate ticket action buttons to avoid inline onclick parsing/quoting issues
     const ticketsGrid = document.getElementById('ticketsGrid');
+    console.log('[setupEventListeners] ticketsGrid element:', ticketsGrid);
+    
     if (ticketsGrid) {
+      console.log('[setupEventListeners] Registering click listener on ticketsGrid');
       ticketsGrid.addEventListener('click', (e) => {
+        console.log('[ticketsGrid click] Event fired', e.target);
+        
         // Be defensive: e.target may be a text node in some browsers, so normalize
         let target = e.target;
         if (target && target.nodeType === Node.TEXT_NODE) target = target.parentElement;
         const btn = target && target.closest ? target.closest('button[data-action]') : null;
+        
+        console.log('[ticketsGrid click] Found button:', btn);
+        
         if (!btn) return;
         
         const action = btn.dataset.action;
@@ -95,6 +105,8 @@ class AutopilotApp {
             break;
         }
       });
+    } else {
+      console.error('[setupEventListeners] ticketsGrid element NOT FOUND!');
     }
     
     // Terminal footer resize handle

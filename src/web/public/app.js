@@ -720,10 +720,10 @@ class AutopilotApp {
 
   showSummaryModal() {
     console.log('[showSummaryModal] Called');
-    this.closeAllModals();
     const summaryModal = document.getElementById('summaryModal');
     console.log('[showSummaryModal] summaryModal element:', summaryModal);
     if (summaryModal) {
+      this.closeAllModals('summaryModal'); // Don't close summaryModal itself
       // Use setTimeout to ensure this happens AFTER the current click event completes
       setTimeout(() => {
         console.log('[showSummaryModal] Adding active class (delayed)');
@@ -742,7 +742,6 @@ class AutopilotApp {
   showEditModal(id) {
     console.log('[showEditModal] Called with id:', id);
     console.log('[showEditModal] Current tickets:', this.tickets);
-    this.closeAllModals();
     const ticket = this.tickets.find(t => t.id === id);
     console.log('[showEditModal] Found ticket:', ticket);
     if (!ticket) {
@@ -762,6 +761,7 @@ class AutopilotApp {
     const editModal = document.getElementById('editModal');
     console.log('[showEditModal] editModal element:', editModal);
     if (editModal) {
+      this.closeAllModals('editModal'); // Don't close editModal itself
       // Use setTimeout to ensure this happens AFTER the current click event completes
       setTimeout(() => {
         console.log('[showEditModal] Adding active class (delayed)');
@@ -835,11 +835,15 @@ class AutopilotApp {
     alert('El resumen solo está disponible para tickets completados.');
   }
 
-  closeAllModals() {
-    console.log('[closeAllModals] Called');
+  closeAllModals(exceptModalId) {
+    console.log('[closeAllModals] Called, except:', exceptModalId);
     const activeModals = document.querySelectorAll('.modal.active');
     console.log('[closeAllModals] Found active modals:', activeModals.length, activeModals);
     activeModals.forEach(m => {
+      if (exceptModalId && m.id === exceptModalId) {
+        console.log('[closeAllModals] Skipping:', m.id);
+        return;
+      }
       console.log('[closeAllModals] Removing active from:', m.id);
       m.classList.remove('active');
     });

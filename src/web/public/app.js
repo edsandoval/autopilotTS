@@ -4,7 +4,7 @@ class AutopilotApp {
   constructor() {
     this.tickets = [];
     this.currentFilter = 'all';
-    this.selectedTicketType = null;
+    this.selectedTicketType = 'bug'; // Default to bug type
     this.selectedEditTicketType = null;
     this.ws = null;
     this.autopilotRunning = false;
@@ -661,13 +661,19 @@ class AutopilotApp {
   // Modal Management
   showCreateModal() {
     this.closeAllModals();
+    this.selectedTicketType = 'bug'; // Set default to bug
+    document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === 'bug');
+    });
     document.getElementById('createModal').classList.add('active');
   }
 
   hideCreateModal() {
     document.getElementById('createModal').classList.remove('active');
-    this.selectedTicketType = null;
-    document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => btn.classList.remove('active'));
+    this.selectedTicketType = 'bug'; // Reset to default
+    document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === 'bug');
+    });
   }
 
   showConfigModal() {
@@ -734,7 +740,6 @@ class AutopilotApp {
     }
     
     document.getElementById('editTicketId').value = ticket.id;
-    document.getElementById('editTicketName').value = ticket.name;
     document.getElementById('editTicketDescription').value = ticket.description;
 
     this.selectedEditTicketType = ticket.type || null;
@@ -755,7 +760,6 @@ class AutopilotApp {
     event.preventDefault();
     
     const id = document.getElementById('editTicketId').value;
-    const name = document.getElementById('editTicketName').value;
     const description = document.getElementById('editTicketDescription').value;
     const type = this.selectedEditTicketType;
     
@@ -763,7 +767,7 @@ class AutopilotApp {
       this.updateStatus('Updating ticket...');
       await this.apiCall(`/tickets/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name, description, type })
+        body: JSON.stringify({ description, type })
       });
       
       this.hideEditModal();

@@ -15,6 +15,9 @@ Fix the following issue in the code.
 **Issue Description:**
 \${DESCRIPTION}
 
+**Type-specific Instructions:**
+\${TYPE}
+
 **Rules:**
 - Only modify what's necessary
 - Don't refactor unrelated code
@@ -243,6 +246,18 @@ export class ConfigManager {
     const config = this.getConfig();
     config.ticketTypes = { ...(config.ticketTypes || {}), ...(ticketTypes as any) };
     this.saveConfig(config);
+  }
+
+  /**
+   * Get the prompt for a specific ticket type
+   */
+  static getTicketTypePrompt(type?: string): string {
+    if (!type) return '';
+    
+    const ticketTypes = this.getTicketTypes();
+    const typeKey = type === 'code-review' ? 'codeReview' : type;
+    
+    return (ticketTypes as any)[typeKey] || '';
   }
 
   static setReportLanguage(language: string): void {

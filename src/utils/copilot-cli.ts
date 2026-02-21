@@ -78,9 +78,12 @@ export class CopilotCLI {
    */
   static buildPrompt(ticket: Ticket): string {
     const template = ConfigManager.getTicketResolutionPrompt();
+    const typePrompt = ConfigManager.getTicketTypePrompt(ticket.type);
+    
     return template
       .replace(/\$\{ID\}/g, ticket.id)
-      .replace(/\$\{DESCRIPTION\}/g, ticket.description);
+      .replace(/\$\{DESCRIPTION\}/g, ticket.description)
+      .replace(/\$\{TYPE\}/g, typePrompt);
   }
 
   /**

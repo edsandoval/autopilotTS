@@ -502,8 +502,8 @@ body {
   z-index: 1000;
   align-items: center;
   justify-content: center;
-  animation: fadeIn 0.2s forwards;
-  opacity: 1; /* Ensure opacity is 1 after animation */
+  /* animation: fadeIn 0.2s forwards; REMOVED - causing issues */
+  opacity: 1; /* Force opacity to 1 */
 }
 
 .modal.active {
@@ -520,7 +520,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden; /* body will scroll instead */
-  animation: slideUp 0.3s;
+  /* animation: slideUp 0.3s; REMOVED - causing issues */
 }
 
 .modal-large {

@@ -44,8 +44,6 @@ class AutopilotApp {
   }
 
   setupEventListeners() {
-    console.log('[setupEventListeners] Starting setup...');
-    
     // Config form submit
     const configForm = document.getElementById('configForm');
     if (configForm) {
@@ -57,26 +55,16 @@ class AutopilotApp {
 
     // Delegate ticket action buttons to avoid inline onclick parsing/quoting issues
     const ticketsGrid = document.getElementById('ticketsGrid');
-    console.log('[setupEventListeners] ticketsGrid element:', ticketsGrid);
-    
     if (ticketsGrid) {
-      console.log('[setupEventListeners] Registering click listener on ticketsGrid');
       ticketsGrid.addEventListener('click', (e) => {
-        console.log('[ticketsGrid click] Event fired', e.target);
-        
         // Be defensive: e.target may be a text node in some browsers, so normalize
         let target = e.target;
         if (target && target.nodeType === Node.TEXT_NODE) target = target.parentElement;
         const btn = target && target.closest ? target.closest('button[data-action]') : null;
-        
-        console.log('[ticketsGrid click] Found button:', btn);
-        
         if (!btn) return;
         
         const action = btn.dataset.action;
         const id = btn.dataset.id;
-        
-        console.log('[TicketAction]', { action, id, btn });
         
         // CRITICAL: Stop propagation AND prevent default
         e.stopPropagation();
@@ -90,7 +78,6 @@ class AutopilotApp {
             this.stopTicket(id);
             break;
           case 'view':
-            console.log('[View] Clicked view button, disabled?', btn.classList.contains('btn-disabled'));
             if (btn.classList.contains('btn-disabled')) {
               this.noSummaryAlert();
             } else {
@@ -98,7 +85,6 @@ class AutopilotApp {
             }
             break;
           case 'edit':
-            console.log('[Edit] Calling showEditModal with id:', id);
             this.showEditModal(id);
             break;
           case 'delete':
@@ -106,8 +92,6 @@ class AutopilotApp {
             break;
         }
       });
-    } else {
-      console.error('[setupEventListeners] ticketsGrid element NOT FOUND!');
     }
     
     // Terminal footer resize handle
@@ -742,36 +726,23 @@ class AutopilotApp {
   }
 
   showEditModal(id) {
-    try {
-      console.log('[showEditModal] Called - START, id:', id);
-      this.closeAllModals();
-      const ticket = this.tickets.find(t => t.id === id);
-      console.log('[showEditModal] Found ticket:', ticket);
-      if (!ticket) {
-        this.showError('Ticket not found');
-        return;
-      }
-      
-      document.getElementById('editTicketId').value = ticket.id;
-      document.getElementById('editTicketName').value = ticket.name;
-      document.getElementById('editTicketDescription').value = ticket.description;
-
-      this.selectedEditTicketType = ticket.type || null;
-      document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
-      });
-
-      const modal = document.getElementById('editModal');
-      console.log('[showEditModal] Modal element:', modal);
-      if (!modal) {
-        console.error('[showEditModal] editModal NOT FOUND in DOM!');
-        return;
-      }
-      modal.classList.add('active');
-      console.log('[showEditModal] classList:', modal.classList.toString());
-    } catch (error) {
-      console.error('[showEditModal] ERROR:', error);
+    this.closeAllModals();
+    const ticket = this.tickets.find(t => t.id === id);
+    if (!ticket) {
+      this.showError('Ticket not found');
+      return;
     }
+    
+    document.getElementById('editTicketId').value = ticket.id;
+    document.getElementById('editTicketName').value = ticket.name;
+    document.getElementById('editTicketDescription').value = ticket.description;
+
+    this.selectedEditTicketType = ticket.type || null;
+    document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
+    });
+
+    document.getElementById('editModal').classList.add('active');
   }
 
   hideEditModal() {
@@ -804,7 +775,6 @@ class AutopilotApp {
   }
 
   async viewTicketSummary(id) {
-    console.log('[viewTicketSummary] Called with id:', id);
     try {
       this.showSummaryModal();
       document.getElementById('summaryTicketId').textContent = id;
@@ -1241,18 +1211,14 @@ const app = new AutopilotApp();
 
 // Close modals when clicking outside
 window.addEventListener('click', (event) => {
-  console.log('[window.onclick] Event fired', event.target);
-  
   // Don't interfere with button clicks or clicks inside modal content
   const target = event.target;
   if (target.closest('button') || target.closest('.modal-content')) {
-    console.log('[window.onclick] Ignoring - clicked on button or modal content');
     return;
   }
   
   // Only close if clicking directly on the modal backdrop
   if (target.classList && target.classList.contains('modal')) {
-    console.log('[window.onclick] Closing modal:', target.id);
     target.classList.remove('active');
   }
 });

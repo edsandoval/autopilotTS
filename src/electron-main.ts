@@ -76,17 +76,18 @@ function createWindow() {
   mainWindow.loadFile(indexPath);
 
   // Remove default application menu so the native menu bar (File/Edit/View...) is hidden
-  // TEMPORARILY ENABLED FOR DEBUGGING
-  // try {
-  //   Menu.setApplicationMenu(null);
-  //   // Also ensure the BrowserWindow menu bar is hidden (Windows/Linux)
-  //   mainWindow.setMenuBarVisibility(false);
-  // } catch (err) {
-  //   console.warn('Failed to remove application menu:', err);
-  // }
+  try {
+    Menu.setApplicationMenu(null);
+    // Also ensure the BrowserWindow menu bar is hidden (Windows/Linux)
+    mainWindow.setMenuBarVisibility(false);
+  } catch (err) {
+    console.warn('Failed to remove application menu:', err);
+  }
 
-  // Open DevTools in development OR for debugging
-  mainWindow.webContents.openDevTools();
+  // Open DevTools in development
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
 
   mainWindow.on('closed', () => {
     // Stop log interceptor when window closes

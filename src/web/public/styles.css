@@ -502,7 +502,8 @@ body {
   z-index: 1000;
   align-items: center;
   justify-content: center;
-  animation: fadeIn 0.2s;
+  animation: fadeIn 0.2s forwards;
+  opacity: 1; /* Ensure opacity is 1 after animation */
 }
 
 .modal.active {

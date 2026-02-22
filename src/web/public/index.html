@@ -112,7 +112,7 @@
 
   <!-- Config Modal -->
   <div class="modal" id="configModal">
-    <div class="modal-content">
+    <form id="configForm"><div class="modal-content">
       <div class="modal-header">
         <h2>Configuration</h2>
         <button class="close-btn" onclick="app.hideConfigModal()">×</button>
@@ -120,11 +120,10 @@
       <div class="modal-body">
         <div class="config-tabs">
           <div class="tab-buttons">
-            <button class="tab-btn active" data-tab="general" onclick="app.showConfigTab('general')">General</button>
-            <button class="tab-btn" data-tab="tipo" onclick="app.showConfigTab('tipo')">Ticket Types</button>
+            <button type="button" class="tab-btn active" data-tab="general" onclick="app.showConfigTab('general')">General</button>
+            <button type="button" class="tab-btn" data-tab="tipo" onclick="app.showConfigTab('tipo')">Ticket Types</button>
           </div>
 
-          <form id="configForm">
             <div class="tab-panel">
               <div class="tab-content" id="configTab-general">
                 <div class="form-group">
@@ -234,7 +233,7 @@
                       <span class="tooltip">Use for bug-fix tickets: ask the agent to find root cause, apply a minimal focused fix, and include a short analysis in the report. Use ${ID} and ${DESCRIPTION} where needed.</span>
                     </span>
                   </div>
-                  <textarea id="ticketTypePrompt-bug" rows="3" placeholder="Prompt for Bug tickets (use ${ID}, ${DESCRIPTION})"></textarea>
+                  <textarea id="ticketTypePrompt-bug" rows="4" placeholder="Prompt for Bug tickets (use ${ID}, ${DESCRIPTION})"></textarea>
                 </div>
 
                 <div class="form-group">
@@ -245,7 +244,7 @@
                       <span class="tooltip">Use for enhancements: extend or improve existing functionality while keeping backward compatibility; include approach and changed files in the report.</span>
                     </span>
                   </div>
-                  <textarea id="ticketTypePrompt-enhancement" rows="3" placeholder="Prompt for Enhancement tickets"></textarea>
+                  <textarea id="ticketTypePrompt-enhancement" rows="4" placeholder="Prompt for Enhancement tickets"></textarea>
                 </div>
 
                 <div class="form-group">
@@ -256,7 +255,7 @@
                       <span class="tooltip">Use for new features: identify integration points, implement incrementally and document how the feature integrates with existing modules.</span>
                     </span>
                   </div>
-                  <textarea id="ticketTypePrompt-feature" rows="3" placeholder="Prompt for Feature tickets"></textarea>
+                  <textarea id="ticketTypePrompt-feature" rows="4" placeholder="Prompt for Feature tickets"></textarea>
                 </div>
 
                 <div class="form-group">
@@ -267,7 +266,7 @@
                       <span class="tooltip">Use for code review tasks: analyze code for bugs, style, security and performance; propose fixes and list suggested changes in the report.</span>
                     </span>
                   </div>
-                  <textarea id="ticketTypePrompt-codeReview" rows="3" placeholder="Prompt for Code Review tickets"></textarea>
+                  <textarea id="ticketTypePrompt-codeReview" rows="4" placeholder="Prompt for Code Review tickets"></textarea>
                 </div>
 
                 <div class="form-group">
@@ -278,11 +277,11 @@
                       <span class="tooltip">Use for refactors: improve code structure and readability without changing behavior; include motivation and files refactored in the report.</span>
                     </span>
                   </div>
-                  <textarea id="ticketTypePrompt-refactor" rows="3" placeholder="Prompt for Refactor tickets"></textarea>
+                  <textarea id="ticketTypePrompt-refactor" rows="4" placeholder="Prompt for Refactor tickets"></textarea>
                 </div>
               </div>
             </div>
-          </form>
+
         </div>
       </div>
 
@@ -293,6 +292,7 @@
         </div>
       </div>
     </div>
+  </form>
   </div>
 
   <!-- Logs Modal -->

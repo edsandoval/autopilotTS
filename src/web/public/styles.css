@@ -577,12 +577,19 @@ body {
   min-height: 0;
 }
 
-/* Ensure the form and its inner panel behave as flex children so .tab-content can scroll */
-#configModal form#configForm {
+/* Ensure the form and its inner panel behave as flex children so .tab-content can scroll when the form is inside modal-content */
+#configModal .modal-content form#configForm {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* If the form wraps the modal-content (the form is a direct child of #configModal), keep it from stretching/full-width so modal remains centered */
+#configModal > form#configForm {
+  display: block;
+  width: auto;
+  margin: 0; /* let the modal-content control centering */
 }
 
 .tab-buttons {
@@ -621,7 +628,8 @@ body {
 /* Fixed-height config modal: consistent height, scroll inside tabs, footer stays pinned */
 #configModal .modal-content {
   height: 80vh; /* fixed to 80% of viewport height as requested */
-  max-width: 700px;
+  width: 900px; /* fixed width to ensure modal is wide enough */
+  max-width: 95vw; /* responsive fallback for small screens */
 }
 
 #configModal .modal-body {

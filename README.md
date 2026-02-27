@@ -95,10 +95,10 @@ Instead of sitting around waiting for Copilot to generate code line by line, it'
 
 ```
 1. Create tickets with tasks/bugs/features in the Desktop App
-       ↓
+       ↓  (optionally assign a type: bug / enhancement / feature / code-review / refactor)
 2. AutopilotTS creates an isolated git worktree for each ticket
        ↓
-3. Calls GitHub Copilot CLI (copilot -p) to resolve the ticket
+3. Calls GitHub Copilot CLI (copilot -p) with the ticket description and type-specific prompt
        ↓
 4. AI analyzes code, generates changes, modifies files automatically
        ↓
@@ -123,8 +123,17 @@ Instead of sitting around waiting for Copilot to generate code line by line, it'
   - Generate HTML summaries with diffs
   - Dynamic listing of available AI models
 - **Git Worktrees**: Each ticket resolves in an isolated worktree (separate branch)
-- **Storage**: Saves tickets in `~/.autopilot/tickets.json`
+- **Storage**: Saves tickets in `~/.autopilot/<project>/tickets.json` (one file per project)
 - **IPC Communication**: Secure bridge between UI and core logic
+
+### Autopilot mode (bulk processing)
+
+When you click **▶️ Start Autopilot** the system runs in two phases:
+
+1. **Phase 1 (0–20%)** — Creates git worktrees for *all* pending tickets upfront so they are isolated and ready.
+2. **Phase 2 (20–100%)** — Processes each ticket sequentially: runs Copilot CLI, generates commit message, commits changes, and saves an HTML summary.
+
+You can stop the process at any time; each completed ticket keeps its worktree and branch intact for review.
 
 ### Why worktrees?
 
@@ -136,6 +145,12 @@ Because you can have multiple tickets being resolved in parallel without interfe
 
 - **Desktop Application** with native window experience (Windows, macOS, Linux)
 - Create, view, update, delete, and manage tickets visually
+- **Ticket Types** — classify each ticket to guide how Copilot resolves it:
+  - 🐛 **Bug** — root-cause analysis and targeted fix
+  - ✨ **Enhancement** — backward-compatible extension of existing functionality
+  - 🚀 **Feature** — new functionality following project conventions
+  - 🔍 **Code Review** — identifies issues and applies justified fixes
+  - ♻️ **Refactor** — improves structure without changing behavior
 - **GitHub Copilot CLI** (`copilot -p`) for automatic ticket resolution:
   - AI-powered code generation and modification
   - Automatic file editing based on ticket description
@@ -144,11 +159,13 @@ Because you can have multiple tickets being resolved in parallel without interfe
   - Automatic commit message generation
   - HTML summaries with diffs
   - Dynamic listing of available AI models
+- **Autopilot mode** — bulk resolution in 2 phases: first creates all worktrees in parallel, then processes tickets sequentially
 - Git worktrees for total isolation (safe concurrency)
 - Real-time logs and output in integrated terminal
-- Visual configuration panel
+- Visual configuration panel with **customizable prompts** per ticket type
 - **Multiple project support** (each project maintains its own tickets, prompts and config stored under `~/.autopilot/<project>`)
 - Debug mode to see internal process
+- Configurable report language
 
 ---
 
@@ -234,7 +251,12 @@ npm start
 npm run dev
 ```
 
-The application window will open automatically with the ticket dashboard.
+The application window will open automatically. On first launch (or when no project is active) you will be prompted to **select or create a project**:
+
+<div align="center">
+  <img src="./docs/open_project.png" alt="Project selection screen" width="800"/>
+  <p><i>Project selection — each project keeps its own tickets, config and prompts</i></p>
+</div>
 
 ### 2. Configure your project
 
@@ -245,17 +267,31 @@ The application window will open automatically with the ticket dashboard.
    - **Base Branch**: Default branch (e.g., `develop` or `main`)
    - **Copilot Model**: Select your preferred AI model
    - **Debug Mode**: Enable for verbose logging
+   - **Report Language**: Language for the HTML change summary (default: `en`)
 
 <div align="center">
   <img src="./docs/config.png" alt="AutopilotTS Configuration" width="800"/>
-  <p><i>Configuration window in Desktop App</i></p>
+  <p><i>Configuration window — paths, model and general options</i></p>
+</div>
+
+3. To customize the prompts Copilot uses for each ticket type, scroll to the **Ticket Type Prompts** section:
+
+<div align="center">
+  <img src="./docs/config2.png" alt="Ticket type prompt configuration" width="800"/>
+  <p><i>Per-type prompt editor — tailor how Copilot handles bugs, features, refactors, etc.</i></p>
 </div>
 
 ### 3. Create tickets
 
 1. Click **➕ New Ticket** button
 2. Enter ticket name and description
-3. Click **Create Ticket**
+3. (Optional) Choose a **ticket type** to guide how Copilot resolves it:
+   - 🐛 **Bug** — focuses on root-cause analysis and minimal fix
+   - ✨ **Enhancement** — extends existing functionality, backward-compatible
+   - 🚀 **Feature** — builds new functionality following project conventions
+   - 🔍 **Code Review** — finds and fixes issues in the codebase
+   - ♻️ **Refactor** — improves structure without changing behavior
+4. Click **Create Ticket**
 
 Your tickets will appear in the main dashboard.
 
@@ -307,11 +343,13 @@ The desktop application provides a user-friendly graphical interface to manage a
 
 **Main Features:**
 - 📊 **Dashboard**: View all tickets with their current status
-- ➕ **New Ticket**: Create tickets with detailed descriptions
-- ▶️ **Start/Stop**: Control ticket resolution
-- ⚙️ **Configuration**: Manage all settings visually
+- ➕ **New Ticket**: Create tickets with detailed descriptions and ticket type
+- ▶️ **Start/Stop**: Control individual ticket resolution
+- 🤖 **Autopilot**: Bulk resolve all pending tickets automatically (2-phase)
+- ⚙️ **Configuration**: Manage all settings visually, including per-type prompts
 - 📺 **Terminal**: Real-time logs and output
 - 🗑️ **Delete**: Remove completed or unwanted tickets
+- 📄 **Summary**: View the HTML diff summary generated for each closed ticket
 
 ### Build Commands
 
@@ -346,8 +384,10 @@ Each project maintains its own configuration file located at `~/.autopilot/<proj
 | `copilotModel` | AI model to use | `gpt-4o` |
 | `debug` | Verbose logs | `false` |
 | `baseBranch` | Base branch for creating branches | `develop` |
-
-(The rest of the table remains the same.)
+| `ticketCommandPrompt` | Prompt template used when running `copilot -p` (supports `${FILE}` placeholder) | built-in default |
+| `ticketResolutionPrompt` | Main resolution prompt (supports `${ID}`, `${DESCRIPTION}`, `${TYPE}` placeholders) | built-in default |
+| `ticketTypes` | Per-type prompt overrides: `bug`, `enhancement`, `feature`, `codeReview`, `refactor` | built-in defaults per type |
+| `reportLanguage` | Language for HTML change summaries | `en` |
 
 ### Available models
 
@@ -365,10 +405,15 @@ AutopilotTS uses **GitHub Copilot SDK** to dynamically get the list of available
 ```json
 {
   "baseRepositoryPath": "/home/user/my-project",
-  "autopilotFolderPath": "/home/user/autopilot-workspace",
+  "automationPath": "/home/user/autopilot-workspace",
   "copilotModel": "gpt-4o",
   "debug": false,
-  "baseBranch": "develop"
+  "baseBranch": "develop",
+  "reportLanguage": "en",
+  "ticketTypes": {
+    "bug": "This task is a BUG FIX. Identify the root cause...",
+    "feature": "This task is a NEW FEATURE. Integrate it following project conventions..."
+  }
 }
 ```
 
@@ -497,19 +542,21 @@ npm run pack         # Build without installer (unpacked only)
 
 ```
 src/
-├── electron-main.ts          # Electron main process entry point
+├── electron-main.ts          # Electron main process entry point + IPC handlers
 ├── electron-preload.ts       # Preload script (IPC bridge)
 ├── agents/                   # Resolution orchestrators
 │   └── TicketResolverCLI.ts # Main resolver using copilot -p
 ├── utils/                    # Core utilities
 │   ├── copilot-cli.ts       # GitHub Copilot CLI wrapper (copilot -p)
 │   ├── copilot.ts           # GitHub Copilot SDK (commit msgs, summaries)
+│   ├── copilot-models.ts    # Fetches available models from Copilot SDK
 │   ├── git.ts               # Git operations & worktrees
-│   ├── storage.ts           # Ticket persistence (JSON)
-│   └── config.ts            # Configuration management
+│   ├── storage.ts           # Ticket persistence (JSON per project)
+│   ├── config.ts            # Configuration management (per project)
+│   ├── project.ts           # Multi-project management (ProjectManager)
+│   └── log-interceptor.ts   # Captures console output and forwards to UI
 ├── web/                      # Frontend UI
-│   ├── public/              # Static assets (HTML, CSS, JS)
-│   └── ipc-handlers.ts      # IPC communication handlers
+│   └── public/              # Static assets (HTML, CSS, JS)
 ├── types/                    # TypeScript type definitions
 └── tests/                    # Unit tests (Vitest)
 ```
@@ -540,15 +587,14 @@ test-coverage.bat     # Generate coverage report
 ```
 
 **Test coverage includes:**
-- ✅ Config management (5 tests)
-- ✅ Ticket structure validation (3 tests)
+- ✅ Config management & ticket types (4 tests)
+- ✅ Ticket storage & project-aware file ops (5 tests)
 - ✅ TypeScript types (3 tests)
 - ✅ Git branching (3 tests)
 - ✅ Log interceptor (4 tests)
+- ✅ Copilot CLI availability (3 tests)
 
-**Total: 18 functional tests** across 5 test files.
-
-See `src/tests/README.md` for detailed documentation.
+**Total: 22 functional tests** across 6 test files.
 
 ---
 

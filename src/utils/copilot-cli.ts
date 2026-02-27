@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { ProjectManager } from './project.js';
 import { Ticket } from '../types/index.js';
 import { ConfigManager } from './config.js';
 
@@ -29,6 +30,11 @@ export class CopilotCLI {
    * Get prompts directory path
    */
   private static getPromptsDir(): string {
+    // use active project directory if available, otherwise fall back to global
+    const project = ProjectManager.getActiveProject();
+    if (project) {
+      return join(ProjectManager.getProjectDir(project), 'prompts');
+    }
     return join(homedir(), '.autopilot', 'prompts');
   }
 

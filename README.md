@@ -90,6 +90,9 @@ Instead of sitting around waiting for Copilot to generate code line by line, it'
 
 ### The workflow
 
+**New in this version:** AutopilotTS now supports managing **multiple projects**. When the desktop app starts you will be prompted to select an existing project or create a new one. All data (tickets, prompts, config) is stored in a separate subfolder for each project inside the `~/.autopilot` directory; project names are encoded to avoid filesystem issues.
+
+
 ```
 1. Create tickets with tasks/bugs/features in the Desktop App
        ↓
@@ -144,7 +147,7 @@ Because you can have multiple tickets being resolved in parallel without interfe
 - Git worktrees for total isolation (safe concurrency)
 - Real-time logs and output in integrated terminal
 - Visual configuration panel
-- Per-project configuration
+- **Multiple project support** (each project maintains its own tickets, prompts and config stored under `~/.autopilot/<project>`)
 - Debug mode to see internal process
 
 ---
@@ -332,17 +335,19 @@ npm run dist             # Create distributable installers
 
 ## Configuration
 
-Configuration is stored in `~/.autopilot/.autopilot.config.json`.
+Each project maintains its own configuration file located at `~/.autopilot/<project>/config.json` (where `<project>` is a base64-encoded folder name). When the desktop app launches it will prompt you to select a project; the active project determines which config is read and written. You can also override the entire autopilot root directory by setting the `AUTOPILOT_DIR` environment variable.
 
 ### Main options
 
 | Key | What it is | Default |
 |-----|------------|---------|
-| `baseRepositoryPath` | Path to your main repo | `null` |
-| `autopilotFolderPath` | Where to create worktrees | `null` |
+| `baseRepositoryPath` | Path to your main repo | `undefined` |
+| `automationPath` | Where to create worktrees (ticket worktrees) | `undefined` |
 | `copilotModel` | AI model to use | `gpt-4o` |
 | `debug` | Verbose logs | `false` |
-| `baseBranch` | Base branch for creating branches | `main` |
+| `baseBranch` | Base branch for creating branches | `develop` |
+
+(The rest of the table remains the same.)
 
 ### Available models
 

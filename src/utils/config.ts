@@ -1,22 +1,19 @@
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import { ProjectConfig } from '../types/index.js';
+import { ProjectManager } from './project.js';
 
 // Default prompts
 const DEFAULT_TICKET_COMMAND_PROMPT = 'Act as a senior developer. Analyze the software ticket in the following file and provide an implementation to resolve it, File -> ${FILE}';
 
 const DEFAULT_TICKET_RESOLUTION_PROMPT = `You are working on a repository.
 
-Fix the following issue in the code.
+\${TYPE}
 
 **Issue Identifier:**
 \${ID}
 **Issue Description:**
 \${DESCRIPTION}
-
-**Type-specific Instructions:**
-\${TYPE}
 
 **Rules:**
 - Only modify what's necessary
@@ -28,27 +25,21 @@ Fix the following issue in the code.
 
 // Default per-type prompts used when ticketTypes are not configured
 const DEFAULT_TICKET_TYPE_PROMPTS: { [k: string]: string } = {
-  bug: `🐛 This task is a BUG FIX. Identify the root cause of the reported behavior and fix it. Before writing any code, add a brief analysis of what is failing and why to the final report. Keep the diff focused and minimal — avoid touching unrelated code. At the end, leave a report detailing: root cause found, changes made, and files modified.`,
-  enhancement: `✨ This task is an ENHANCEMENT to existing functionality. Extend or improve the feature respecting the existing architecture and patterns. If you introduce new parameters, methods or config, make them backward-compatible. At the end, leave a report detailing: what was extended, approach taken, and files modified.`,
-  feature: `🚀 This task is a NEW FEATURE. Identify where in the codebase this fits and integrate it following the project's conventions for structure, naming and patterns. Build incrementally and prefer small, composable pieces. Do not modify unrelated code. At the end, leave a report detailing: what was built, how it integrates with existing modules, and files modified.`,
-  codeReview: `🔍 This task is a CODE REVIEW. Analyze the code and identify: bugs or logic errors, security concerns, performance issues, readability problems, and deviations from the project's patterns. Apply the fixes you consider necessary and justified. At the end, leave a report detailing: issues found, changes applied, and files modified.`,
-  refactor: `♻️ This task is a REFACTOR. Behavior must remain identical before and after — do not introduce new functionality. Focus on reducing complexity, improving naming, eliminating duplication, and aligning with existing patterns. At the end, leave a report detailing: what was refactored, reasoning behind each change, and files modified.`
+  bug: `This task is a BUG FIX. Identify the root cause of the reported behavior and fix it. Before writing any code, add a brief analysis of what is failing and why to the final report. Keep the diff focused and minimal — avoid touching unrelated code. At the end, leave a report detailing: root cause found, changes made, and files modified.`,
+  enhancement: `This task is an ENHANCEMENT to existing functionality. Extend or improve the feature respecting the existing architecture and patterns. If you introduce new parameters, methods or config, make them backward-compatible. At the end, leave a report detailing: what was extended, approach taken, and files modified.`,
+  feature: `This task is a NEW FEATURE. Identify where in the codebase this fits and integrate it following the project's conventions for structure, naming and patterns. Build incrementally and prefer small, composable pieces. Do not modify unrelated code. At the end, leave a report detailing: what was built, how it integrates with existing modules, and files modified.`,
+  codeReview: `This task is a CODE REVIEW. Analyze the code and identify: bugs or logic errors, security concerns, performance issues, readability problems, and deviations from the project's patterns. Apply the fixes you consider necessary and justified. At the end, leave a report detailing: issues found, changes applied, and files modified.`,
+  refactor: `This task is a REFACTOR. Behavior must remain identical before and after — do not introduce new functionality. Focus on reducing complexity, improving naming, eliminating duplication, and aligning with existing patterns. At the end, leave a report detailing: what was refactored, reasoning behind each change, and files modified.`
 };
-function getAutopilotDir(): string {
-  // Get user home directory
-  const homeDir = os.homedir();
-  const autopilotDir = path.join(homeDir, '.autopilot');
-  
-  // Ensure directory exists
-  if (!fs.existsSync(autopilotDir)) {
-    fs.mkdirSync(autopilotDir, { recursive: true });
-  }
-  
-  return autopilotDir;
-}
+// project-specific paths are computed with ProjectManager
 
 function getConfigFile(): string {
-  return path.join(getAutopilotDir(), 'config.json');
+  const project = ProjectManager.getActiveProject();
+  if (!project) {
+    throw new Error('No active project selected - please choose or create a project in the UI');
+  }
+  const projectDir = ProjectManager.getProjectDir(project);
+  return path.join(projectDir, 'config.json');
 }
 
 export class ConfigManager {
@@ -104,6 +95,17 @@ export class ConfigManager {
         }
       }
       if (!config.ticketTypes) config.ticketTypes = ticketTypes;
+
+      // Migration: restore default prompts if they were stripped
+      if (!config.ticketCommandPrompt) {
+        config.ticketCommandPrompt = DEFAULT_TICKET_COMMAND_PROMPT;
+        migrated = true;
+      }
+      if (!config.ticketResolutionPrompt) {
+        config.ticketResolutionPrompt = DEFAULT_TICKET_RESOLUTION_PROMPT;
+        migrated = true;
+      }
+
       if (migrated) {
         try {
           fs.writeFileSync(getConfigFile(), JSON.stringify(config, null, 2));
@@ -197,7 +199,10 @@ export class ConfigManager {
   }
 
   static getConfigPath(): string {
-    return getAutopilotDir();
+    // return the directory used for the current project; falls back to the
+    // global autopilot root if no project is active.
+    const project = ProjectManager.getActiveProject();
+    return project ? ProjectManager.getProjectDir(project) : ProjectManager.getAutopilotDir();
   }
 
   static getTicketCommandPrompt(): string {

@@ -26,6 +26,7 @@
         </div>
       </div>
       <div class="header-actions">
+        <span id="projectLabel" class="project-label"></span>
         <button class="btn btn-autopilot" onclick="app.showAutopilotModal()" id="autopilotBtn">
           🚀 Autopilot Mode
         </button>
@@ -69,6 +70,50 @@
       </div>
       <div class="terminal-body" id="terminalBody">
         <div id="terminal"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Selection Modal -->
+  <div class="modal" id="projectModal">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2>📁 Select Project</h2>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="projectList">Available projects</label>
+          <div id="projectList" class="project-list-custom">
+            <!-- populated dynamically -->
+          </div>
+        </div>
+        <div class="form-actions project-modal-actions">
+          <button id="openProjectBtn" class="btn btn-primary" onclick="app.openSelectedProject()">▶ Open</button>
+          <button id="createProjectBtn" class="btn btn-secondary" onclick="app.showCreateProjectModal()">➕ New Project</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Project Modal -->
+  <div class="modal" id="createProjectModal">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2>➕ New Project</h2>
+        <button class="close-btn" onclick="app.hideCreateProjectModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="createProjectForm" onsubmit="app.createProject(event)">
+          <div class="form-group">
+            <label for="newProjectName">Project Name</label>
+            <input type="text" id="newProjectName" required placeholder="e.g., SismoArgentina" autocomplete="off"
+              oninput="document.getElementById('acceptProjectBtn').disabled = !this.value.trim()">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="app.hideCreateProjectModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="acceptProjectBtn" disabled>✔ Accept</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -134,7 +179,10 @@
                       <span class="tooltip">The root directory path where your project repositories are stored. This is the parent folder containing your git repositories.</span>
                     </span>
                   </div>
-                  <input type="text" id="baseRepositoryPath" placeholder="Base repository folder path">
+                  <div class="input-with-browse">
+                    <input type="text" id="baseRepositoryPath" placeholder="Base repository folder path">
+                    <button type="button" class="btn-browse" onclick="app.browseFolder('baseRepositoryPath')" title="Select folder">📁</button>
+                  </div>
                 </div>
                 <div class="form-group">
                   <div class="label-with-help">
@@ -144,7 +192,10 @@
                       <span class="tooltip">The directory path where Autopilot stores ticket data and configuration files. Leave empty to use the current directory.</span>
                     </span>
                   </div>
-                  <input type="text" id="automationPath" placeholder="Automation folder path">
+                  <div class="input-with-browse">
+                    <input type="text" id="automationPath" placeholder="Automation folder path">
+                    <button type="button" class="btn-browse" onclick="app.browseFolder('automationPath')" title="Select folder">📁</button>
+                  </div>
                 </div>
                 <div class="form-group">
                   <div class="label-with-help">
@@ -329,23 +380,22 @@
   <div class="modal" id="autopilotConfirmModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>🚀 Iniciar Modo Autopilot</h2>
+        <h2>🚀 Start Autopilot Mode</h2>
         <button class="close-btn" onclick="app.hideAutopilotModal()">×</button>
       </div>
       <div class="modal-body">
         <div class="autopilot-preview">
-          <p><strong>Se procesarán los siguientes tickets en orden:</strong></p>
+          <p><strong>The following tickets will be processed in order:</strong></p>
           <div id="autopilotTicketsList" class="autopilot-tickets-list">
             <!-- Populated by JS -->
           </div>
           <p class="autopilot-warning">
-            ⚠️ <strong>Importante:</strong> Los tickets se resolverán uno a la vez usando Copilot CLI.
-            Esto puede tomar varios minutos dependiendo de la complejidad.
+            ⚠️ <strong>Important:</strong> Tickets will be resolved one at a time using Copilot CLI. This may take several minutes depending on complexity.
           </p>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="app.hideAutopilotModal()">Cancelar</button>
-          <button type="button" class="btn btn-success" onclick="app.startAutopilot()">🚀 Iniciar Autopilot</button>
+          <button type="button" class="btn btn-secondary" onclick="app.hideAutopilotModal()">Cancel</button>
+          <button type="button" class="btn btn-success" onclick="app.startAutopilot()">🚀 Start Autopilot</button>
         </div>
       </div>
     </div>
@@ -355,26 +405,26 @@
   <div class="modal" id="autopilotProgressModal">
     <div class="modal-content modal-large">
       <div class="modal-header">
-        <h2>⚙️ Autopilot en Ejecución</h2>
-        <button class="close-btn" onclick="app.stopAutopilot()" title="Detener después del ticket actual">⏸️</button>
+        <h2>⚙️ Autopilot Running</h2>
+        <button class="close-btn" onclick="app.stopAutopilot()" title="Stop after current ticket">⏸️</button>
       </div>
       <div class="modal-body">
         <div class="autopilot-progress">
           <div class="progress-info">
-            <span id="progressText">Procesando ticket 1 de 5...</span>
+            <span id="progressText">Processing ticket 1 of 5...</span>
           </div>
           <div class="progress-bar-container">
             <div class="progress-bar" id="progressBar" style="width: 0%"></div>
           </div>
           <div class="current-ticket-info">
-            <h3>Ticket Actual:</h3>
+            <h3>Current Ticket:</h3>
             <div id="currentTicketInfo" class="ticket-info-box">
               <div class="ticket-id">TASK-001</div>
-              <div class="ticket-name">Cargando...</div>
+              <div class="ticket-name">Loading...</div>
             </div>
           </div>
           <div class="autopilot-actions">
-            <button class="btn btn-warning" onclick="app.stopAutopilot()">⏸️ Detener Autopilot</button>
+            <button class="btn btn-warning" onclick="app.stopAutopilot()">⏸️ Stop Autopilot</button>
           </div>
           <!-- Terminal in Autopilot Modal -->
           <div class="autopilot-terminal-container">
@@ -393,7 +443,7 @@
   <div class="modal" id="autopilotSummaryModal">
     <div class="modal-content modal-large">
       <div class="modal-header">
-        <h2>✅ Autopilot Finalizado</h2>
+        <h2>✅ Autopilot Completed</h2>
         <button class="close-btn" onclick="app.hideAutopilotSummary()">×</button>
       </div>
       <div class="modal-body">
@@ -401,7 +451,7 @@
           <!-- Populated by JS -->
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-primary" onclick="app.hideAutopilotSummary()">Cerrar</button>
+          <button type="button" class="btn btn-primary" onclick="app.hideAutopilotSummary()">Close</button>
         </div>
       </div>
     </div>
@@ -447,5 +497,10 @@
 
   <script src="electron-adapter.js"></script>
   <script src="app.js"></script>
+
+  <!-- Project Context Menu -->
+  <div id="projectContextMenu" class="context-menu">
+    <div class="context-menu-item danger" onclick="app.deleteSelectedProject()">🗑️ Delete</div>
+  </div>
 </body>
 </html>

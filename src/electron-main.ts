@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, dialog } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import { Storage } from './utils/storage.js';
 import { ConfigManager } from './utils/config.js';
+import { ProjectManager } from './utils/project.js';
 import { GitManager } from './utils/git.js';
 import { TicketResolverCLI } from './agents/TicketResolverCLI.js';
 import { Ticket, TicketStatus, TicketType } from './types/index.js';
@@ -13,10 +14,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
-let git: GitManager;
+let git: GitManager | null = null;
 let ticketResolverCLI: TicketResolverCLI | null = null;
 let autopilotRunning = false;
 let autopilotShouldStop = false;
+let lastTicketsHash = '';
 
 /**
  * Send progress update to frontend
@@ -97,7 +99,6 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  git = new GitManager();
   setupIpcHandlers();
   createWindow();
 
@@ -119,6 +120,10 @@ async function processAutopilotTickets() {
     // Start intercepting logs for autopilot
     LogInterceptor.start();
 
+    // Ensure GitManager is initialized (requires an active project)
+    if (!git) {
+      git = new GitManager();
+    }
     // PHASE 1: Create worktrees for all pending tickets
     console.log('[Autopilot] Phase 1: Creating worktrees for all pending tickets...');
     const tickets = Storage.getAllTickets();
@@ -255,9 +260,68 @@ async function processAutopilotTickets() {
 
 function setupIpcHandlers() {
   // Ticket management
+
+  // Project management
+  ipcMain.handle('list-projects', async () => {
+    try {
+      const projects = ProjectManager.listProjects();
+      const active = ProjectManager.getActiveProject();
+      return { success: true, projects, active };
+    } catch (err) {
+      console.error('[IPC] Error listing projects:', err);
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('create-project', async (_event, name: string) => {
+    try {
+      ProjectManager.createProject(name);
+      // clear caches so subsequent reads use new project
+      Storage.resetCache();
+      return { success: true, project: name };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('select-project', async (_event, name: string) => {
+    try {
+      ProjectManager.setActiveProject(name);
+      Storage.resetCache();
+      git = new GitManager(); // reinitialize with new project's config
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('get-active-project', async () => {
+    try {
+      return { success: true, project: ProjectManager.getActiveProject() };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('delete-project', async (_event, name: string) => {
+    try {
+      ProjectManager.deleteProject(name);
+      Storage.resetCache();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // Ticket management
   ipcMain.handle('get-all-tickets', async () => {
     try {
       const tickets = Storage.getAllTickets();
+      const currentHash = JSON.stringify(tickets);
+      if (currentHash !== lastTicketsHash) {
+        console.log('[IPC] get-all-tickets called');
+        lastTicketsHash = currentHash;
+      }
       return { success: true, tickets };
     } catch (error) {
       console.error('[IPC] Error getting tickets:', error);
@@ -289,8 +353,10 @@ function setupIpcHandlers() {
       if (!ticket) {
         throw new Error('Ticket not found');
       }
-      const updates: Partial<Ticket> = { name, description };
-      if (type !== undefined) updates.type = type as Ticket['type'];
+      const updates: Partial<Ticket> = {};
+      if (typeof name !== 'undefined') updates.name = name;
+      if (typeof description !== 'undefined') updates.description = description;
+      if (typeof type !== 'undefined') updates.type = type as Ticket['type'];
       Storage.updateTicket(id, updates);
       const updatedTicket = Storage.getTicket(id);
       return { success: true, ticket: updatedTicket };
@@ -518,7 +584,20 @@ function setupIpcHandlers() {
   ipcMain.handle('update-config', async (_event, configUpdate: any) => {
     try {
       const currentConfig = ConfigManager.getConfig();
-      const newConfig = { ...currentConfig, ...configUpdate };
+      // Strip undefined values so they don't overwrite persisted defaults
+      const cleanUpdate = Object.fromEntries(
+        Object.entries(configUpdate).filter(([, v]) => v !== undefined)
+      );
+      // Handle nested ticketTypes: merge instead of replace
+      if (configUpdate.ticketTypes) {
+        cleanUpdate.ticketTypes = {
+          ...(currentConfig.ticketTypes || {}),
+          ...Object.fromEntries(
+            Object.entries(configUpdate.ticketTypes).filter(([, v]) => v !== undefined)
+          )
+        };
+      }
+      const newConfig = { ...currentConfig, ...cleanUpdate };
       ConfigManager.saveConfig(newConfig);
       return { success: true, config: newConfig };
     } catch (error) {
@@ -546,6 +625,18 @@ function setupIpcHandlers() {
       electron: process.versions.electron,
       node: process.versions.node
     };
+  });
+
+  // Folder picker
+  ipcMain.handle('select-folder', async () => {
+    if (!mainWindow) return { success: false, error: 'No window available' };
+    const paths = dialog.showOpenDialogSync(mainWindow, {
+      properties: ['openDirectory', 'createDirectory']
+    });
+    if (!paths || paths.length === 0) {
+      return { success: false, cancelled: true };
+    }
+    return { success: true, path: paths[0] };
   });
 }
 

@@ -26,8 +26,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Copilot models
   getCopilotModels: () => ipcRenderer.invoke('get-copilot-models'),
 
+  // Project management
+  listProjects: () => ipcRenderer.invoke('list-projects'),
+  createProject: (name: string) => ipcRenderer.invoke('create-project', name),
+  selectProject: (name: string) => ipcRenderer.invoke('select-project', name),
+  getActiveProject: () => ipcRenderer.invoke('get-active-project'),
+  deleteProject: (name: string) => ipcRenderer.invoke('delete-project', name),
+
   // Health check
   healthCheck: () => ipcRenderer.invoke('health-check'),
+
+  // Folder picker
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
 
   // Event listeners
   onTicketLog: (callback: (data: any) => void) => {
@@ -61,7 +71,13 @@ declare global {
       getConfig: () => Promise<{ success: boolean; config?: any; error?: string }>;
       updateConfig: (config: any) => Promise<{ success: boolean; config?: any; error?: string }>;
       getCopilotModels: () => Promise<{ success: boolean; models?: any[]; error?: string }>;
+      listProjects: () => Promise<{ success: boolean; projects?: string[]; active?: string; error?: string }>;
+      createProject: (name: string) => Promise<{ success: boolean; project?: string; error?: string }>;
+      selectProject: (name: string) => Promise<{ success: boolean; error?: string }>;
+      getActiveProject: () => Promise<{ success: boolean; project?: string; error?: string }>;
+      deleteProject: (name: string) => Promise<{ success: boolean; error?: string }>;
       healthCheck: () => Promise<{ status: string; timestamp: string; electron: string; node: string }>;
+      selectFolder: () => Promise<{ success: boolean; path?: string; cancelled?: boolean; error?: string }>;
       onTicketLog: (callback: (data: any) => void) => void;
       removeTicketLogListener: () => void;
       onAutopilotProgress: (callback: (data: any) => void) => void;

@@ -3,6 +3,10 @@
 class AutopilotApp {
   constructor() {
     this.tickets = [];
+    this.projects = [];
+    this.activeProject = null;
+    this.currentProject = null;
+
     this.currentFilter = 'all';
     this.selectedTicketType = 'bug'; // Default to bug type
     this.selectedEditTicketType = null;
@@ -28,22 +32,74 @@ class AutopilotApp {
   async init() {
     // Expose app globally immediately for Electron adapter
     window.app = this;
-    
+
+    // Setup listeners before showing any modal so the project list is interactive
+    this.setupEventListeners();
+
+    // ensure a project is selected before doing anything else
+    await this.ensureProjectSelected();
+
     await this.loadTickets();
     await this.loadConfig();
     await this.loadModels(); // Load available models
     this.setupElectronIPC(); // Use Electron IPC instead of WebSocket
     this.setupTerminal();
-    this.setupEventListeners();
     this.setupGlobalTooltips();
-    
+
     // Process any queued logs that arrived before app was ready
     this.processQueuedLogs();
-    
+
     this.updateStatus('Ready - Desktop Mode');
   }
 
   setupEventListeners() {
+    // Project buttons
+    const projectList = document.getElementById('projectList');
+    if (projectList) {
+      projectList.addEventListener('click', (e) => {
+        const item = e.target.closest('.project-list-item');
+        if (!item) return;
+        // Mark as selected
+        projectList.querySelectorAll('.project-list-item').forEach(el => el.classList.remove('selected'));
+        item.classList.add('selected');
+      });
+      projectList.addEventListener('dblclick', (e) => {
+        const item = e.target.closest('.project-list-item');
+        if (!item) return;
+        this.selectProject(item.dataset.project);
+      });
+      projectList.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const item = e.target.closest('.project-list-item');
+        if (!item) return;
+        // Select the right-clicked item
+        projectList.querySelectorAll('.project-list-item').forEach(el => el.classList.remove('selected'));
+        item.classList.add('selected');
+        const menu = document.getElementById('projectContextMenu');
+        if (!menu) return;
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+        menu.classList.add('visible');
+      });
+    }
+    document.addEventListener('click', () => this._hideProjectContextMenu());
+    document.addEventListener('contextmenu', (e) => {
+      if (!e.target.closest('#projectList')) {
+        this._hideProjectContextMenu();
+      }
+    });
+    const createProjectBtn = document.getElementById('createProjectBtn');
+    if (createProjectBtn) {
+      createProjectBtn.addEventListener('click', () => this.showCreateProjectModal());
+    }
+    const projectLabel = document.getElementById('projectLabel');
+    if (projectLabel) {
+      projectLabel.style.cursor = 'pointer';
+      projectLabel.addEventListener('click', () => {
+        this.loadProjects().then(() => this.showProjectModal());
+      });
+    }
+
     // Config form submit
     const configForm = document.getElementById('configForm');
     if (configForm) {
@@ -215,9 +271,9 @@ class AutopilotApp {
     // Update progress text based on phase
     let progressText = '';
     if (phase === 'phase1') {
-      progressText = `Creando worktrees: ${current}/${total} (${percentage}%)`;
+      progressText = `Creating worktrees: ${current}/${total} (${percentage}%)`;
     } else if (phase === 'phase2') {
-      progressText = `Procesando tickets: ${current}/${total} (${percentage}%)`;
+      progressText = `Processing tickets: ${current}/${total} (${percentage}%)`;
       
       // Update current ticket info if provided
       if (currentTicketId) {
@@ -230,7 +286,7 @@ class AutopilotApp {
         }
       }
     } else if (phase === 'complete') {
-      progressText = `Completado (100%)`;
+      progressText = `Completed (100%)`;
     }
     
     document.getElementById('progressText').textContent = progressText;
@@ -242,6 +298,179 @@ class AutopilotApp {
       console.log(`Processing ${window._pendingLogs.length} queued logs...`);
       window._pendingLogs.forEach(data => this.handleTicketLog(data));
       window._pendingLogs = [];
+    }
+  }
+
+  // Project helpers
+  async ensureProjectSelected() {
+    // Always load projects and show the selection modal at startup
+    await this.loadProjects();
+
+    // Get currently active project (to pre-label it, but still show chooser)
+    const res = await window.electronAPI.getActiveProject();
+    if (res.success && res.project) {
+      this.currentProject = res.project;
+      this.setProjectLabel(res.project);
+    }
+
+    if (this.projects.length === 0) {
+      // nothing to pick, show creation dialog directly
+      this.showCreateProjectModal();
+    } else {
+      this.showProjectModal();
+      // Wait for the user to select a project before continuing
+      await new Promise(resolve => { this._projectSelectionResolve = resolve; });
+    }
+  }
+
+  async loadProjects() {
+    try {
+      const res = await window.electronAPI.listProjects();
+      if (res.success) {
+        this.projects = res.projects || [];
+        this.activeProject = res.active;
+        const list = document.getElementById('projectList');
+        if (list) {
+          list.innerHTML = '';
+          (this.projects || []).forEach((p) => {
+            const item = document.createElement('div');
+            item.className = 'project-list-item' + (p === this.activeProject ? ' selected' : '');
+            item.dataset.project = p;
+            item.textContent = p;
+            list.appendChild(item);
+          });
+          // ensure first item selected if active not found
+          const hasSelected = list.querySelector('.project-list-item.selected');
+          if (!hasSelected && list.firstChild) {
+            list.firstChild.classList.add('selected');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load projects', err);
+    }
+  }
+
+  openSelectedProject() {
+    const list = document.getElementById('projectList');
+    if (!list) return;
+    const selected = list.querySelector('.project-list-item.selected');
+    if (!selected) return;
+    this.selectProject(selected.dataset.project);
+  }
+
+  showProjectModal() {
+    const modal = document.getElementById('projectModal');
+    if (modal) modal.classList.add('active');
+  }
+  hideProjectModal() {
+    const modal = document.getElementById('projectModal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  setProjectLabel(name) {
+    const lbl = document.getElementById('projectLabel');
+    if (lbl) lbl.textContent = `Project: ${name}`;
+  }
+
+  async selectProject(name) {
+    try {
+      await window.electronAPI.selectProject(name);
+      this.currentProject = name;
+      this.setProjectLabel(name);
+      this.hideProjectModal();
+      // resolve the startup promise if pending
+      if (this._projectSelectionResolve) {
+        this._projectSelectionResolve();
+        this._projectSelectionResolve = null;
+      }
+      // reload data now that project changed
+      await this.loadTickets();
+      await this.loadConfig();
+      this.updateStatus(`Project "${name}" selected`);
+    } catch (err) {
+      console.error('Error selecting project', err);
+    }
+  }
+
+  showCreateProjectModal() {
+    const modal = document.getElementById('createProjectModal');
+    if (modal) modal.classList.add('active');
+    // hide selection list while creating
+    const sel = document.getElementById('projectModal');
+    if (sel) sel.classList.remove('active');
+    // focus the name input and reset the Accept button
+    setTimeout(() => {
+      const input = document.getElementById('newProjectName');
+      if (input) { input.value = ''; input.focus(); }
+      const btn = document.getElementById('acceptProjectBtn');
+      if (btn) btn.disabled = true;
+    }, 50);
+  }
+  hideCreateProjectModal() {
+    const modal = document.getElementById('createProjectModal');
+    if (modal) modal.classList.remove('active');
+    // always go back to project selection
+    const sel = document.getElementById('projectModal');
+    if (sel) sel.classList.add('active');
+  }
+
+  async createProject(event) {
+    event.preventDefault();
+    const input = document.getElementById('newProjectName');
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      await window.electronAPI.createProject(name);
+      this.currentProject = name;
+      this.setProjectLabel(name);
+      this.hideCreateProjectModal();
+      this.hideProjectModal();
+      // resolve the startup promise if pending
+      if (this._projectSelectionResolve) {
+        this._projectSelectionResolve();
+        this._projectSelectionResolve = null;
+      }
+      await this.loadTickets();
+      await this.loadConfig();
+      this.updateStatus(`Project "${name}" created and selected`);
+    } catch (err) {
+      console.error('Failed to create project', err);
+    }
+  }
+
+  _hideProjectContextMenu() {
+    const menu = document.getElementById('projectContextMenu');
+    if (menu) menu.classList.remove('visible');
+  }
+
+  async deleteSelectedProject() {
+    this._hideProjectContextMenu();
+    const list = document.getElementById('projectList');
+    if (!list) return;
+    const selected = list.querySelector('.project-list-item.selected');
+    if (!selected) return;
+    const name = selected.dataset.project;
+    if (!name) return;
+    const confirmed = confirm(`¿Eliminar el proyecto "${name}"?\n\nSe eliminará permanentemente la carpeta del proyecto y todos sus tickets. Esta acción no se puede deshacer.`);
+    if (!confirmed) return;
+    try {
+      const res = await window.electronAPI.deleteProject(name);
+      if (!res.success) throw new Error(res.error || 'Unknown error');
+      if (this.currentProject === name) {
+        this.currentProject = null;
+        this.setProjectLabel('');
+      }
+      await this.loadProjects();
+      this.updateStatus(`Project "${name}" deleted`);
+      if (this.projects.length === 0) {
+        this.hideProjectModal();
+        this.showCreateProjectModal();
+      }
+    } catch (err) {
+      console.error('Failed to delete project', err);
+      this.updateStatus(`Failed to delete project "${name}"`);
     }
   }
 
@@ -489,6 +718,18 @@ class AutopilotApp {
       }
     } catch (error) {
       console.error('Failed to load config:', error);
+    }
+  }
+
+  async browseFolder(inputId) {
+    try {
+      const result = await this.apiCall('/folder/select', { method: 'POST' });
+      if (result.success && result.path) {
+        const input = document.getElementById(inputId);
+        if (input) input.value = result.path;
+      }
+    } catch (err) {
+      console.error('browseFolder error:', err);
     }
   }
 

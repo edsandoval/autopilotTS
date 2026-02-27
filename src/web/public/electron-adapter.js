@@ -113,6 +113,10 @@
         return { success: true, ...health };
       }
 
+      if (endpoint === '/folder/select' && method === 'POST') {
+        return await window.electronAPI.selectFolder();
+      }
+
       throw new Error(`Unknown endpoint: ${method} ${endpoint}`);
     } catch (error) {
       return { success: false, error: error.message };

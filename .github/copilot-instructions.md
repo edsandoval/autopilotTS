@@ -43,7 +43,7 @@ Ticket → Explorer → Analyzer → Planner → Implementer → Validator → �
 ```
 
 **Utility Modules** (`src/utils/`)
-- `storage.ts` - Manages `.autopilot.json` (ticket data) and `.autopilot.config.json` (project path)
+- `storage.ts` - Manages `.autopilot.json` inside the active project folder (ticket data). Active project is tracked via `project.ts` and stored in `~/.autopilot/active_project.txt`.
 - `git.ts` - Handles branching, pulling, committing via simple-git
 - `copilot.ts` - Wraps `@github/copilot-sdk` with streaming/message handling
 - `display.ts` - Terminal UI formatting with chalk/figlet/cli-table3
@@ -61,7 +61,7 @@ Ticket → Explorer → Analyzer → Planner → Implementer → Validator → �
 
 ### Configuration Files
 
-- `.autopilot.config.json` (in execution directory) - Contains `projectPath` and `debug` flag
+- Project-specific `config.json` files now live under `~/.autopilot/<project>/config.json`; use `ProjectManager` to manage them.
 - `.autopilot.json` (in project directory) - Stores ticket array and last ID counter
 - If `projectPath` is set, all operations execute in that directory
 

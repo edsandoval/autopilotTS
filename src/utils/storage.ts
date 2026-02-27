@@ -1,23 +1,17 @@
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import { Ticket, TicketConfig, TicketStatus, TicketType } from '../types/index.js';
 
-function getAutopilotDir(): string {
-  // Get user home directory
-  const homeDir = os.homedir();
-  const autopilotDir = path.join(homeDir, '.autopilot');
-  
-  // Ensure directory exists
-  if (!fs.existsSync(autopilotDir)) {
-    fs.mkdirSync(autopilotDir, { recursive: true });
-  }
-  
-  return autopilotDir;
-}
+// helper functions migrated to ProjectManager in project.ts
+import { ProjectManager } from './project.js';
 
-function getConfigFile(): string {
-  return path.join(getAutopilotDir(), 'tickets.json');
+function getTicketsFile(): string {
+  const project = ProjectManager.getActiveProject();
+  if (!project) {
+    throw new Error('No active project selected - please choose or create a project in the UI');
+  }
+  const projectDir = ProjectManager.getProjectDir(project);
+  return path.join(projectDir, 'tickets.json');
 }
 
 export class Storage {
@@ -27,52 +21,97 @@ export class Storage {
     mtime: number;
   } | null = null;
 
-  private static ensureConfigExists(): void {
-    const configFile = getConfigFile();
-    
-    if (!fs.existsSync(configFile)) {
+  /**
+   * Clear any in‑memory caches (used when switching projects).
+   */
+  static resetCache() {
+    this.fileCache = null;
+  }
+
+  /**
+   * If tickets.json doesn't exist but config.json has ticket data (legacy layout),
+   * migrate the ticket data out of config.json into tickets.json and strip it
+   * from config.json so each file has a single responsibility.
+   */
+  private static migrateFromConfig(): void {
+    const ticketsFile = getTicketsFile();
+    if (fs.existsSync(ticketsFile)) return; // already migrated
+
+    const project = ProjectManager.getActiveProject();
+    if (!project) return;
+    const projectDir = ProjectManager.getProjectDir(project);
+    const configFile = path.join(projectDir, 'config.json');
+    if (!fs.existsSync(configFile)) return;
+
+    try {
+      const raw = fs.readFileSync(configFile, 'utf-8');
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.tickets)) {
+        // Write ticket data to tickets.json
+        const ticketData: TicketConfig = {
+          tickets: data.tickets,
+          lastId: data.lastId ?? 0
+        };
+        fs.writeFileSync(ticketsFile, JSON.stringify(ticketData, null, 2));
+        console.log(`[Storage] Migrated ${data.tickets.length} ticket(s) from config.json → tickets.json`);
+
+        // Remove ticket keys from config.json
+        delete data.tickets;
+        delete data.lastId;
+        fs.writeFileSync(configFile, JSON.stringify(data, null, 2));
+        console.log('[Storage] Removed ticket data from config.json');
+      }
+    } catch (e) {
+      console.warn('[Storage] Migration from config.json failed:', e);
+    }
+  }
+
+  private static ensureTicketsFileExists(): void {
+    this.migrateFromConfig();
+    const ticketsFile = getTicketsFile();
+    if (!fs.existsSync(ticketsFile)) {
       const initialConfig: TicketConfig = {
         tickets: [],
         lastId: 0
       };
-      fs.writeFileSync(configFile, JSON.stringify(initialConfig, null, 2));
+      fs.writeFileSync(ticketsFile, JSON.stringify(initialConfig, null, 2));
     }
   }
 
   static getConfig(): TicketConfig {
     try {
-      this.ensureConfigExists();
-      const configFile = getConfigFile();
-      
-      if (!fs.existsSync(configFile)) {
-        throw new Error(`Config file does not exist: ${configFile}`);
+      this.ensureTicketsFileExists();
+      const ticketsFile = getTicketsFile();
+
+      if (!fs.existsSync(ticketsFile)) {
+        throw new Error(`Tickets file does not exist: ${ticketsFile}`);
       }
-      
+
       // Check file stats to detect changes
-      const stats = fs.statSync(configFile);
+      const stats = fs.statSync(ticketsFile);
       const currentSize = stats.size;
       const currentMtime = stats.mtimeMs;
-      
+
       // Only log if file has changed or first time reading
-      const hasChanged = !this.fileCache || 
-                        this.fileCache.size !== currentSize || 
+      const hasChanged = !this.fileCache ||
+                        this.fileCache.size !== currentSize ||
                         this.fileCache.mtime !== currentMtime;
-      
+
       if (hasChanged) {
-        console.log('[Storage] Reading tickets from:', configFile);
-        console.log('[Storage] Read', currentSize, 'bytes from config file');
-        
+        console.log('[Storage] Reading tickets from:', ticketsFile);
+        console.log('[Storage] Read', currentSize, 'bytes from tickets file');
+
         // Update cache
         this.fileCache = { size: currentSize, mtime: currentMtime };
       }
-      
-      const data = fs.readFileSync(configFile, 'utf-8');
+
+      const data = fs.readFileSync(ticketsFile, 'utf-8');
       const config = JSON.parse(data);
-      
+
       if (hasChanged) {
         console.log('[Storage] Parsed config with', config.tickets?.length || 0, 'tickets');
       }
-      
+
       // Convert date strings back to Date objects
       config.tickets = config.tickets.map((t: any) => ({
         ...t,
@@ -81,16 +120,16 @@ export class Storage {
         stoppedAt: t.stoppedAt ? new Date(t.stoppedAt) : undefined,
         closedAt: t.closedAt ? new Date(t.closedAt) : undefined
       }));
-      
+
       return config;
     } catch (error) {
-      console.error('[Storage] Error reading config:', error);
+      console.error('[Storage] Error reading tickets:', error);
       throw error;
     }
   }
 
   static saveConfig(config: TicketConfig): void {
-    fs.writeFileSync(getConfigFile(), JSON.stringify(config, null, 2));
+    fs.writeFileSync(getTicketsFile(), JSON.stringify(config, null, 2));
   }
 
   static getAllTickets(): Ticket[] {
@@ -146,7 +185,12 @@ export class Storage {
     return false;
   }
 
+  /**
+   * Return the path where ticket/state files are being stored for the
+   * currently active project.  Useful for tests and debugging.
+   */
   static getStoragePath(): string {
-    return getAutopilotDir();
+    const project = ProjectManager.getActiveProject();
+    return project ? ProjectManager.getProjectDir(project) : ProjectManager.getAutopilotDir();
   }
 }

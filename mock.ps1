@@ -11,8 +11,12 @@ Write-Host "Creating 3 simple mock tickets for testing..."
 Write-Host "Target: Android/Jetpack Compose app"
 Write-Host ""
 
-# Get autopilot directory (~/.autopilot)
-$AUTOPILOT_DIR = Join-Path $env:USERPROFILE ".autopilot"
+# Get autopilot directory (~/.autopilot) or override with AUTOPILOT_DIR
+if ($env:AUTOPILOT_DIR) {
+    $AUTOPILOT_DIR = $env:AUTOPILOT_DIR
+} else {
+    $AUTOPILOT_DIR = Join-Path $env:USERPROFILE ".autopilot"
+}
 $TICKETS_FILE = Join-Path $AUTOPILOT_DIR "tickets.json"
 
 if (-not (Test-Path $AUTOPILOT_DIR)) {

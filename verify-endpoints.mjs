@@ -24,6 +24,11 @@ const expectedEndpoints = [
   { method: 'POST', path: '/api/config', handler: 'update-config' },
   { method: 'GET', path: '/api/config/models', handler: 'get-copilot-models' },
   { method: 'POST', path: '/api/config/models/refresh', handler: 'get-copilot-models' },
+  // project management (in-app IPC only, but documented for completeness)
+  { method: 'GET', path: '/api/projects', handler: 'list-projects' },
+  { method: 'POST', path: '/api/projects', handler: 'create-project' },
+  { method: 'POST', path: '/api/projects/:name/select', handler: 'select-project' },
+  { method: 'GET', path: '/api/projects/active', handler: 'get-active-project' },
   { method: 'GET', path: '/api/health', handler: 'health-check' },
 ];
 

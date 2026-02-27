@@ -25,8 +25,8 @@ console.log('   Node Version:', process.version);
 console.log('   User Home:', os.homedir());
 console.log('');
 
-// 2. Check ~/.autopilot directory
-const autopilotDir = path.join(os.homedir(), '.autopilot');
+// 2. Check ~/.autopilot directory (or override via AUTOPILOT_DIR)
+const autopilotDir = process.env.AUTOPILOT_DIR || path.join(os.homedir(), '.autopilot');
 console.log('2. Autopilot Directory:');
 console.log('   Path:', autopilotDir);
 console.log('   Exists:', fs.existsSync(autopilotDir) ? '✓ Yes' : '✗ No');
@@ -34,6 +34,9 @@ console.log('   Exists:', fs.existsSync(autopilotDir) ? '✓ Yes' : '✗ No');
 if (fs.existsSync(autopilotDir)) {
   const files = fs.readdirSync(autopilotDir);
   console.log('   Contents:', files.join(', ') || '(empty)');
+  if (files.length > 0) {
+    console.log('   (these may be project folders encoded in base64)');
+  }
 }
 console.log('');
 

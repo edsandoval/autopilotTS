@@ -75,7 +75,7 @@ Installers will be created in the `release/` directory:
 
 ## Backward Compatibility
 
-- **Ticket data** remains in the same location (`~/.autopilot/`)
+- **Ticket data** now lives in `~/.autopilot/<project>` subfolders. Existing data in the root folder will be read as the active project by default; you may reorganize it manually if you want multiple projects.
 - **Configuration** format unchanged
 - **Git operations** work identically
 - **Copilot integration** remains the same

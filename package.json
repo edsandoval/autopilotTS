@@ -32,22 +32,23 @@
     "files": [
       "dist/**/*",
       "docs/icon-*.png",
+      "docs/code-buddy-icon-*.png",
       "package.json"
     ],
-    "icon": "docs/icon-512.png",
+    "icon": "docs/code-buddy-icon-512.png",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": "dmg",
-      "icon": "docs/icon-512.png"
+      "icon": "docs/code-buddy-icon-512.png"
     },
     "win": {
       "target": "nsis",
-      "icon": "docs/icon-256.png"
+      "icon": "docs/code-buddy-icon-256.png"
     },
     "linux": {
       "target": "AppImage",
       "category": "Development",
-      "icon": "docs/icon-512.png"
+      "icon": "docs/code-buddy-icon-512.png"
     }
   },
   "author": "",

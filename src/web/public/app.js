@@ -3,7 +3,13 @@
 class AutopilotApp {
   constructor() {
     this.tickets = [];
+    this.projects = [];
+    this.activeProject = null;
+    this.currentProject = null;
+
     this.currentFilter = 'all';
+    this.selectedTicketType = 'bug'; // Default to bug type
+    this.selectedEditTicketType = null;
     this.ws = null;
     this.autopilotRunning = false;
     this.autopilotInterval = null;
@@ -26,21 +32,74 @@ class AutopilotApp {
   async init() {
     // Expose app globally immediately for Electron adapter
     window.app = this;
-    
+
+    // Setup listeners before showing any modal so the project list is interactive
+    this.setupEventListeners();
+
+    // ensure a project is selected before doing anything else
+    await this.ensureProjectSelected();
+
     await this.loadTickets();
     await this.loadConfig();
     await this.loadModels(); // Load available models
     this.setupElectronIPC(); // Use Electron IPC instead of WebSocket
     this.setupTerminal();
-    this.setupEventListeners();
-    
+    this.setupGlobalTooltips();
+
     // Process any queued logs that arrived before app was ready
     this.processQueuedLogs();
-    
+
     this.updateStatus('Ready - Desktop Mode');
   }
 
   setupEventListeners() {
+    // Project buttons
+    const projectList = document.getElementById('projectList');
+    if (projectList) {
+      projectList.addEventListener('click', (e) => {
+        const item = e.target.closest('.project-list-item');
+        if (!item) return;
+        // Mark as selected
+        projectList.querySelectorAll('.project-list-item').forEach(el => el.classList.remove('selected'));
+        item.classList.add('selected');
+      });
+      projectList.addEventListener('dblclick', (e) => {
+        const item = e.target.closest('.project-list-item');
+        if (!item) return;
+        this.selectProject(item.dataset.project);
+      });
+      projectList.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const item = e.target.closest('.project-list-item');
+        if (!item) return;
+        // Select the right-clicked item
+        projectList.querySelectorAll('.project-list-item').forEach(el => el.classList.remove('selected'));
+        item.classList.add('selected');
+        const menu = document.getElementById('projectContextMenu');
+        if (!menu) return;
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+        menu.classList.add('visible');
+      });
+    }
+    document.addEventListener('click', () => this._hideProjectContextMenu());
+    document.addEventListener('contextmenu', (e) => {
+      if (!e.target.closest('#projectList')) {
+        this._hideProjectContextMenu();
+      }
+    });
+    const createProjectBtn = document.getElementById('createProjectBtn');
+    if (createProjectBtn) {
+      createProjectBtn.addEventListener('click', () => this.showCreateProjectModal());
+    }
+    const projectLabel = document.getElementById('projectLabel');
+    if (projectLabel) {
+      projectLabel.style.cursor = 'pointer';
+      projectLabel.addEventListener('click', () => {
+        this.loadProjects().then(() => this.showProjectModal());
+      });
+    }
+
     // Config form submit
     const configForm = document.getElementById('configForm');
     if (configForm) {
@@ -49,9 +108,132 @@ class AutopilotApp {
         this.saveConfig(e);
       });
     }
+
+    // Delegate ticket action buttons to avoid inline onclick parsing/quoting issues
+    const ticketsGrid = document.getElementById('ticketsGrid');
+    if (ticketsGrid) {
+      ticketsGrid.addEventListener('click', (e) => {
+        // Be defensive: e.target may be a text node in some browsers, so normalize
+        let target = e.target;
+        if (target && target.nodeType === Node.TEXT_NODE) target = target.parentElement;
+        const btn = target && target.closest ? target.closest('button[data-action]') : null;
+        if (!btn) return;
+        
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        
+        // CRITICAL: Stop propagation AND prevent default
+        e.stopPropagation();
+        e.preventDefault();
+        
+        switch (action) {
+          case 'start':
+            this.startTicket(id);
+            break;
+          case 'stop':
+            this.stopTicket(id);
+            break;
+          case 'view':
+            if (btn.classList.contains('btn-disabled')) {
+              this.noSummaryAlert();
+            } else {
+              this.viewTicketSummary(id);
+            }
+            break;
+          case 'edit':
+            this.showEditModal(id);
+            break;
+          case 'delete':
+            this.deleteTicket(id);
+            break;
+        }
+      });
+    }
     
     // Terminal footer resize handle
     this.setupTerminalResize();
+  }
+
+  // Global tooltip portal (prevents clipping by overflow parents)
+  setupGlobalTooltips() {
+    if (this._tooltipInitialized) return;
+
+    // create single global tooltip element appended to body
+    this._globalTooltip = document.createElement('div');
+    this._globalTooltip.className = 'global-tooltip';
+    this._globalTooltip.setAttribute('role', 'tooltip');
+    this._globalTooltip.style.display = 'none';
+    document.body.appendChild(this._globalTooltip);
+
+    const showFromElement = (el) => {
+      const inner = el.querySelector('.tooltip');
+      if (!inner) return;
+      this._showGlobalTooltip(el, inner.innerHTML);
+    };
+
+    const hide = () => this._hideGlobalTooltip();
+
+    document.querySelectorAll('.help-icon').forEach(icon => {
+      icon.addEventListener('mouseenter', () => showFromElement(icon));
+      icon.addEventListener('mouseleave', hide);
+      icon.addEventListener('focus', () => showFromElement(icon), true);
+      icon.addEventListener('blur', hide, true);
+      icon.addEventListener('touchstart', (e) => { e.preventDefault(); showFromElement(icon); }, { passive: false });
+    });
+
+    // hide on scroll/resize for stability
+    window.addEventListener('scroll', hide, true);
+    window.addEventListener('resize', hide);
+
+    this._tooltipInitialized = true;
+  }
+
+  _showGlobalTooltip(referenceEl, html) {
+    if (!this._globalTooltip) return;
+    const tip = this._globalTooltip;
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    tip.style.visibility = 'hidden';
+    tip.classList.remove('above', 'below', 'visible');
+
+    // position after next frame so offsetWidth/Height are correct
+    requestAnimationFrame(() => {
+      const rect = referenceEl.getBoundingClientRect();
+      const w = tip.offsetWidth;
+      const h = tip.offsetHeight;
+
+      // prefer placing above the reference; if no space, place below
+      let top = rect.top - h - 8;
+      let placement = 'above';
+      if (top < 8) {
+        top = rect.bottom + 8;
+        placement = 'below';
+      }
+
+      let left = rect.left + rect.width / 2 - w / 2;
+      const margin = 8;
+      left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
+
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+      tip.classList.add(placement === 'above' ? 'above' : 'below');
+      tip.style.visibility = 'visible';
+
+      // animate in
+      requestAnimationFrame(() => tip.classList.add('visible'));
+    });
+  }
+
+  _hideGlobalTooltip() {
+    const tip = this._globalTooltip;
+    if (!tip) return;
+    tip.classList.remove('visible');
+    setTimeout(() => {
+      tip.style.display = 'none';
+      tip.style.visibility = 'hidden';
+      tip.innerHTML = '';
+      tip.classList.remove('above', 'below');
+    }, 150);
   }
 
   // Electron IPC Setup (replaces WebSocket)
@@ -89,9 +271,9 @@ class AutopilotApp {
     // Update progress text based on phase
     let progressText = '';
     if (phase === 'phase1') {
-      progressText = `Creando worktrees: ${current}/${total} (${percentage}%)`;
+      progressText = `Creating worktrees: ${current}/${total} (${percentage}%)`;
     } else if (phase === 'phase2') {
-      progressText = `Procesando tickets: ${current}/${total} (${percentage}%)`;
+      progressText = `Processing tickets: ${current}/${total} (${percentage}%)`;
       
       // Update current ticket info if provided
       if (currentTicketId) {
@@ -104,7 +286,7 @@ class AutopilotApp {
         }
       }
     } else if (phase === 'complete') {
-      progressText = `Completado (100%)`;
+      progressText = `Completed (100%)`;
     }
     
     document.getElementById('progressText').textContent = progressText;
@@ -116,6 +298,179 @@ class AutopilotApp {
       console.log(`Processing ${window._pendingLogs.length} queued logs...`);
       window._pendingLogs.forEach(data => this.handleTicketLog(data));
       window._pendingLogs = [];
+    }
+  }
+
+  // Project helpers
+  async ensureProjectSelected() {
+    // Always load projects and show the selection modal at startup
+    await this.loadProjects();
+
+    // Get currently active project (to pre-label it, but still show chooser)
+    const res = await window.electronAPI.getActiveProject();
+    if (res.success && res.project) {
+      this.currentProject = res.project;
+      this.setProjectLabel(res.project);
+    }
+
+    if (this.projects.length === 0) {
+      // nothing to pick, show creation dialog directly
+      this.showCreateProjectModal();
+    } else {
+      this.showProjectModal();
+      // Wait for the user to select a project before continuing
+      await new Promise(resolve => { this._projectSelectionResolve = resolve; });
+    }
+  }
+
+  async loadProjects() {
+    try {
+      const res = await window.electronAPI.listProjects();
+      if (res.success) {
+        this.projects = res.projects || [];
+        this.activeProject = res.active;
+        const list = document.getElementById('projectList');
+        if (list) {
+          list.innerHTML = '';
+          (this.projects || []).forEach((p) => {
+            const item = document.createElement('div');
+            item.className = 'project-list-item' + (p === this.activeProject ? ' selected' : '');
+            item.dataset.project = p;
+            item.textContent = p;
+            list.appendChild(item);
+          });
+          // ensure first item selected if active not found
+          const hasSelected = list.querySelector('.project-list-item.selected');
+          if (!hasSelected && list.firstChild) {
+            list.firstChild.classList.add('selected');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load projects', err);
+    }
+  }
+
+  openSelectedProject() {
+    const list = document.getElementById('projectList');
+    if (!list) return;
+    const selected = list.querySelector('.project-list-item.selected');
+    if (!selected) return;
+    this.selectProject(selected.dataset.project);
+  }
+
+  showProjectModal() {
+    const modal = document.getElementById('projectModal');
+    if (modal) modal.classList.add('active');
+  }
+  hideProjectModal() {
+    const modal = document.getElementById('projectModal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  setProjectLabel(name) {
+    const lbl = document.getElementById('projectLabel');
+    if (lbl) lbl.textContent = `Project: ${name}`;
+  }
+
+  async selectProject(name) {
+    try {
+      await window.electronAPI.selectProject(name);
+      this.currentProject = name;
+      this.setProjectLabel(name);
+      this.hideProjectModal();
+      // resolve the startup promise if pending
+      if (this._projectSelectionResolve) {
+        this._projectSelectionResolve();
+        this._projectSelectionResolve = null;
+      }
+      // reload data now that project changed
+      await this.loadTickets();
+      await this.loadConfig();
+      this.updateStatus(`Project "${name}" selected`);
+    } catch (err) {
+      console.error('Error selecting project', err);
+    }
+  }
+
+  showCreateProjectModal() {
+    const modal = document.getElementById('createProjectModal');
+    if (modal) modal.classList.add('active');
+    // hide selection list while creating
+    const sel = document.getElementById('projectModal');
+    if (sel) sel.classList.remove('active');
+    // focus the name input and reset the Accept button
+    setTimeout(() => {
+      const input = document.getElementById('newProjectName');
+      if (input) { input.value = ''; input.focus(); }
+      const btn = document.getElementById('acceptProjectBtn');
+      if (btn) btn.disabled = true;
+    }, 50);
+  }
+  hideCreateProjectModal() {
+    const modal = document.getElementById('createProjectModal');
+    if (modal) modal.classList.remove('active');
+    // always go back to project selection
+    const sel = document.getElementById('projectModal');
+    if (sel) sel.classList.add('active');
+  }
+
+  async createProject(event) {
+    event.preventDefault();
+    const input = document.getElementById('newProjectName');
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      await window.electronAPI.createProject(name);
+      this.currentProject = name;
+      this.setProjectLabel(name);
+      this.hideCreateProjectModal();
+      this.hideProjectModal();
+      // resolve the startup promise if pending
+      if (this._projectSelectionResolve) {
+        this._projectSelectionResolve();
+        this._projectSelectionResolve = null;
+      }
+      await this.loadTickets();
+      await this.loadConfig();
+      this.updateStatus(`Project "${name}" created and selected`);
+    } catch (err) {
+      console.error('Failed to create project', err);
+    }
+  }
+
+  _hideProjectContextMenu() {
+    const menu = document.getElementById('projectContextMenu');
+    if (menu) menu.classList.remove('visible');
+  }
+
+  async deleteSelectedProject() {
+    this._hideProjectContextMenu();
+    const list = document.getElementById('projectList');
+    if (!list) return;
+    const selected = list.querySelector('.project-list-item.selected');
+    if (!selected) return;
+    const name = selected.dataset.project;
+    if (!name) return;
+    const confirmed = confirm(`¿Eliminar el proyecto "${name}"?\n\nSe eliminará permanentemente la carpeta del proyecto y todos sus tickets. Esta acción no se puede deshacer.`);
+    if (!confirmed) return;
+    try {
+      const res = await window.electronAPI.deleteProject(name);
+      if (!res.success) throw new Error(res.error || 'Unknown error');
+      if (this.currentProject === name) {
+        this.currentProject = null;
+        this.setProjectLabel('');
+      }
+      await this.loadProjects();
+      this.updateStatus(`Project "${name}" deleted`);
+      if (this.projects.length === 0) {
+        this.hideProjectModal();
+        this.showCreateProjectModal();
+      }
+    } catch (err) {
+      console.error('Failed to delete project', err);
+      this.updateStatus(`Failed to delete project "${name}"`);
     }
   }
 
@@ -161,16 +516,18 @@ class AutopilotApp {
     
     const name = document.getElementById('ticketName').value;
     const description = document.getElementById('ticketDescription').value;
+    const type = this.selectedTicketType;
     
     try {
       this.updateStatus('Creating ticket...');
       await this.apiCall('/tickets', {
         method: 'POST',
-        body: JSON.stringify({ name, description })
+        body: JSON.stringify({ name, description, type })
       });
       
       this.hideCreateModal();
       document.getElementById('createForm').reset();
+      this.selectedTicketType = null;
       await this.loadTickets();
       this.showSuccess('Ticket created successfully!');
     } catch (error) {
@@ -340,6 +697,18 @@ class AutopilotApp {
       document.getElementById('ticketCommandPrompt').value = config.ticketCommandPrompt || defaults.ticketCommandPrompt || '';
       document.getElementById('ticketResolutionPrompt').value = config.ticketResolutionPrompt || defaults.ticketResolutionPrompt || '';
       
+      // Load per-type prompts (ticketTypes)
+      const ticketTypes = config.ticketTypes || {};
+      const setIfExists = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value || '';
+      };
+      setIfExists('ticketTypePrompt-bug', ticketTypes.bug);
+      setIfExists('ticketTypePrompt-enhancement', ticketTypes.enhancement);
+      setIfExists('ticketTypePrompt-feature', ticketTypes.feature);
+      setIfExists('ticketTypePrompt-codeReview', ticketTypes.codeReview);
+      setIfExists('ticketTypePrompt-refactor', ticketTypes.refactor);
+      
       document.getElementById('reportLanguage').value = config.reportLanguage || 'en';
       
       // Set model dropdown value if models are already loaded
@@ -349,6 +718,18 @@ class AutopilotApp {
       }
     } catch (error) {
       console.error('Failed to load config:', error);
+    }
+  }
+
+  async browseFolder(inputId) {
+    try {
+      const result = await this.apiCall('/folder/select', { method: 'POST' });
+      if (result.success && result.path) {
+        const input = document.getElementById(inputId);
+        if (input) input.value = result.path;
+      }
+    } catch (err) {
+      console.error('browseFolder error:', err);
     }
   }
 
@@ -365,6 +746,15 @@ class AutopilotApp {
     const ticketCommandPrompt = document.getElementById('ticketCommandPrompt').value;
     const ticketResolutionPrompt = document.getElementById('ticketResolutionPrompt').value;
     const reportLanguage = document.getElementById('reportLanguage').value;
+
+    // Per-type prompts (Ticket Types)
+    const ticketTypes = {
+      bug: document.getElementById('ticketTypePrompt-bug') ? document.getElementById('ticketTypePrompt-bug').value.trim() : undefined,
+      enhancement: document.getElementById('ticketTypePrompt-enhancement') ? document.getElementById('ticketTypePrompt-enhancement').value.trim() : undefined,
+      feature: document.getElementById('ticketTypePrompt-feature') ? document.getElementById('ticketTypePrompt-feature').value.trim() : undefined,
+      codeReview: document.getElementById('ticketTypePrompt-codeReview') ? document.getElementById('ticketTypePrompt-codeReview').value.trim() : undefined,
+      refactor: document.getElementById('ticketTypePrompt-refactor') ? document.getElementById('ticketTypePrompt-refactor').value.trim() : undefined
+    };
     
     try {
       this.updateStatus('Saving configuration...');
@@ -379,7 +769,14 @@ class AutopilotApp {
         debug: debug,
         ticketCommandPrompt: ticketCommandPrompt.trim() || undefined,
         ticketResolutionPrompt: ticketResolutionPrompt.trim() || undefined,
-        reportLanguage: reportLanguage || undefined
+        reportLanguage: reportLanguage || undefined,
+        ticketTypes: {
+          bug: ticketTypes.bug || undefined,
+          enhancement: ticketTypes.enhancement || undefined,
+          feature: ticketTypes.feature || undefined,
+          codeReview: ticketTypes.codeReview || undefined,
+          refactor: ticketTypes.refactor || undefined
+        }
       };
       
       await this.apiCall('/config', {
@@ -446,6 +843,7 @@ class AutopilotApp {
         <div class="ticket-header">
           <div class="ticket-id">${ticket.id}</div>
           <div style="display: flex; align-items: center; gap: 8px;">
+            ${ticket.type ? `<span class="ticket-type ticket-type-${ticket.type}">${this.getTypeLabel(ticket.type)}</span>` : ''}
             ${workingIndicator}
             <span class="ticket-status ${ticket.status}">${ticket.status}</span>
           </div>
@@ -464,42 +862,79 @@ class AutopilotApp {
 
   getTicketActions(ticket) {
     const actions = [];
-    
+
     if (ticket.status === 'pending' || ticket.status === 'stopped') {
-      actions.push(`<button class="btn btn-success" onclick="app.startTicket('${ticket.id}')">▶️ Start</button>`);
+      actions.push(`<button class="btn btn-success" data-action="start" data-id="${ticket.id}">▶️ Start</button>`);
     }
-    
+
     if (ticket.status === 'working') {
-      actions.push(`<button class="btn btn-warning" onclick="app.stopTicket('${ticket.id}')">⏸️ Stop</button>`);
+      actions.push(`<button class="btn btn-warning" data-action="stop" data-id="${ticket.id}">⏸️ Stop</button>`);
     }
-    
+
     // Always show eye icon, but only functional if ticket is closed and has summary
     const eyeClass = (ticket.status === 'closed' && ticket.summary) ? 'btn-info' : 'btn-disabled';
-    const eyeClick = (ticket.status === 'closed' && ticket.summary) ? `onclick="app.viewTicketSummary('${ticket.id}')"` : 'onclick="app.noSummaryAlert()"';
-    actions.push(`<button class="btn ${eyeClass}" ${eyeClick}>👁️ Ver</button>`);
-    
+    actions.push(`<button class="btn ${eyeClass}" data-action="view" data-id="${ticket.id}">👁️ Ver</button>`);
+
     // Edit button - only allow editing if ticket is not working
     if (ticket.status !== 'working') {
-      actions.push(`<button class="btn btn-info" onclick="app.showEditModal('${ticket.id}')">✏️ Edit</button>`);
+      actions.push(`<button class="btn btn-info" data-action="edit" data-id="${ticket.id}">✏️ Edit</button>`);
     }
-    
-    actions.push(`<button class="btn btn-danger" onclick="app.deleteTicket('${ticket.id}')">🗑️ Delete</button>`);
-    
+
+    actions.push(`<button class="btn btn-danger" data-action="delete" data-id="${ticket.id}">🗑️ Delete</button>`);
+
     return actions.join('');
+  }
+
+  selectTicketType(type) {
+    this.selectedTicketType = (this.selectedTicketType === type) ? null : type;
+    document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === this.selectedTicketType);
+    });
+  }
+
+  selectEditTicketType(type) {
+    this.selectedEditTicketType = (this.selectedEditTicketType === type) ? null : type;
+    document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
+    });
   }
 
   // Modal Management
   showCreateModal() {
+    this.closeAllModals();
+    this.selectedTicketType = 'bug'; // Set default to bug
+    document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === 'bug');
+    });
     document.getElementById('createModal').classList.add('active');
   }
 
   hideCreateModal() {
     document.getElementById('createModal').classList.remove('active');
+    this.selectedTicketType = 'bug'; // Reset to default
+    document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === 'bug');
+    });
   }
 
   showConfigModal() {
+    this.closeAllModals();
     this.loadConfig();
     document.getElementById('configModal').classList.add('active');
+    // Ensure General tab is active when opening
+    this.showConfigTab('general');
+  }
+
+  showConfigTab(tab) {
+    // Toggle active class on tab buttons
+    document.querySelectorAll('#configModal .tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+
+    // Show/hide tab content sections
+    document.querySelectorAll('#configModal .tab-content').forEach(content => {
+      content.style.display = (content.id === `configTab-${tab}`) ? 'block' : 'none';
+    });
   }
 
   hideConfigModal() {
@@ -507,6 +942,7 @@ class AutopilotApp {
   }
 
   showLogsModal() {
+    this.closeAllModals();
     document.getElementById('logsModal').classList.add('active');
   }
 
@@ -515,7 +951,21 @@ class AutopilotApp {
   }
 
   showSummaryModal() {
-    document.getElementById('summaryModal').classList.add('active');
+    try {
+      console.log('[showSummaryModal] Called - START');
+      this.closeAllModals();
+      document.getElementById('summaryModal').classList.add('active');
+      const modal = document.getElementById('summaryModal');
+      console.log('[showSummaryModal] Modal element:', modal);
+      if (!modal) {
+        console.error('[showSummaryModal] summaryModal NOT FOUND in DOM!');
+        return;
+      }
+      modal.classList.add('active');
+      console.log('[showSummaryModal] classList:', modal.classList.toString());
+    } catch (error) {
+      console.error('[showSummaryModal] ERROR:', error);
+    }
   }
 
   hideSummaryModal() {
@@ -523,6 +973,7 @@ class AutopilotApp {
   }
 
   showEditModal(id) {
+    this.closeAllModals();
     const ticket = this.tickets.find(t => t.id === id);
     if (!ticket) {
       this.showError('Ticket not found');
@@ -531,11 +982,19 @@ class AutopilotApp {
     
     document.getElementById('editTicketId').value = ticket.id;
     document.getElementById('editTicketDescription').value = ticket.description;
+
+    this.selectedEditTicketType = ticket.type || null;
+    document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === this.selectedEditTicketType);
+    });
+
     document.getElementById('editModal').classList.add('active');
   }
 
   hideEditModal() {
     document.getElementById('editModal').classList.remove('active');
+    this.selectedEditTicketType = null;
+    document.querySelectorAll('#editTicketTypeSelector .type-tag').forEach(btn => btn.classList.remove('active'));
   }
 
   async updateTicket(event) {
@@ -543,12 +1002,13 @@ class AutopilotApp {
     
     const id = document.getElementById('editTicketId').value;
     const description = document.getElementById('editTicketDescription').value;
+    const type = this.selectedEditTicketType;
     
     try {
       this.updateStatus('Updating ticket...');
       await this.apiCall(`/tickets/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ description })
+        body: JSON.stringify({ description, type })
       });
       
       this.hideEditModal();
@@ -591,8 +1051,13 @@ class AutopilotApp {
     alert('El resumen solo está disponible para tickets completados.');
   }
 
+  closeAllModals() {
+    document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+  }
+
   // Autopilot Mode
   async showAutopilotModal() {
+    this.closeAllModals();
     const pendingTickets = this.tickets.filter(t => t.status === 'pending');
     
     if (pendingTickets.length === 0) {
@@ -630,6 +1095,7 @@ class AutopilotApp {
 
       // Show progress modal
       this.autopilotRunning = true;
+      this.closeAllModals();
       document.getElementById('autopilotProgressModal').classList.add('active');
       document.getElementById('autopilotBtn').disabled = true;
       document.getElementById('autopilotBtn').classList.add('disabled');
@@ -735,6 +1201,7 @@ class AutopilotApp {
     `;
     
     document.getElementById('autopilotSummaryContent').innerHTML = summaryHtml;
+    this.closeAllModals();
     document.getElementById('autopilotSummaryModal').classList.add('active');
     
     this.updateStatus('Autopilot finalizado');
@@ -773,6 +1240,17 @@ class AutopilotApp {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  getTypeLabel(type) {
+    const labels = {
+      'bug': '🐛 Bug',
+      'enhancement': '✨ Enhancement',
+      'feature': '🚀 Feature',
+      'code-review': '👁️ Code Review',
+      'refactor': '🔧 Refactor'
+    };
+    return labels[type] || type;
   }
 
   // ============================================
@@ -977,11 +1455,18 @@ class AutopilotApp {
 const app = new AutopilotApp();
 
 // Close modals when clicking outside
-window.onclick = (event) => {
-  if (event.target.classList.contains('modal')) {
-    event.target.classList.remove('active');
+window.addEventListener('click', (event) => {
+  // Don't interfere with button clicks or clicks inside modal content
+  const target = event.target;
+  if (target.closest('button') || target.closest('.modal-content')) {
+    return;
   }
-};
+  
+  // Only close if clicking directly on the modal backdrop
+  if (target.classList && target.classList.contains('modal')) {
+    target.classList.remove('active');
+  }
+});
 
 // Refresh tickets every 10 seconds
 setInterval(() => {

@@ -53,7 +53,7 @@
       }
       
       if (endpoint === '/tickets' && method === 'POST') {
-        return await window.electronAPI.createTicket(body.name, body.description);
+        return await window.electronAPI.createTicket(body.name, body.description, body.type);
       }
       
       // Autopilot endpoints
@@ -89,7 +89,7 @@
       
       if (endpoint.match(/^\/tickets\/(.+)$/) && (method === 'PUT' || method === 'PATCH')) {
         const id = endpoint.match(/^\/tickets\/(.+)$/)[1];
-        return await window.electronAPI.updateTicket(id, body.description);
+        return await window.electronAPI.updateTicket(id, body.name, body.description, body.type);
       }
       
       if (endpoint === '/config' && method === 'GET') {
@@ -111,6 +111,10 @@
       if (endpoint === '/health' && method === 'GET') {
         const health = await window.electronAPI.healthCheck();
         return { success: true, ...health };
+      }
+
+      if (endpoint === '/folder/select' && method === 'POST') {
+        return await window.electronAPI.selectFolder();
       }
 
       throw new Error(`Unknown endpoint: ${method} ${endpoint}`);

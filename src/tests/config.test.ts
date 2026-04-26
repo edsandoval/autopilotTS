@@ -1,82 +1,102 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'fs';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import fs, { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { ConfigManager } from '../utils/config.js';
+import { ProjectManager } from '../utils/project.js';
 import type { ProjectConfig } from '../types/index.js';
 
-describe('Config - File Operations', () => {
+// many of the config routines now rely on an "active" project, so the
+// tests create a temporary autopilot root and ensure a project is selected
+// before exercising ConfigManager behaviour.
+
+describe('Config & ProjectManager - project aware file ops', () => {
   let testDir: string;
-  let configFile: string;
 
   beforeEach(() => {
     testDir = join(tmpdir(), `autopilot-config-test-${Date.now()}`);
     mkdirSync(testDir, { recursive: true });
-    configFile = join(testDir, '.autopilot.config.json');
+    process.env.AUTOPILOT_DIR = testDir;
   });
 
   afterEach(() => {
+    delete process.env.AUTOPILOT_DIR;
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true });
     }
   });
 
-  it('should read project path from config file', () => {
-    const config: ProjectConfig = {
-      projectPath: '/test/path',
-      debug: false
-    };
-    
-    writeFileSync(configFile, JSON.stringify(config));
+  it('ProjectManager should list and create projects', () => {
+    // initially no projects
+    expect(ProjectManager.listProjects()).toEqual([]);
 
-    const loaded: ProjectConfig = JSON.parse(readFileSync(configFile, 'utf8'));
-    expect(loaded.projectPath).toBe('/test/path');
+    // create one
+    ProjectManager.createProject('MyProject');
+    expect(ProjectManager.listProjects()).toEqual(['MyProject']);
+    expect(ProjectManager.getActiveProject()).toBe('MyProject');
+
+    // creating again just switches
+    ProjectManager.createProject('MyProject');
+    expect(ProjectManager.listProjects()).toEqual(['MyProject']);
+    expect(ProjectManager.getActiveProject()).toBe('MyProject');
+
+    // create a second project
+    ProjectManager.createProject('Another');
+    expect(ProjectManager.listProjects().sort()).toEqual(['Another', 'MyProject']);
+    expect(ProjectManager.getActiveProject()).toBe('Another');
   });
 
-  it('should write project path to config file', () => {
-    const config: ProjectConfig = {
-      projectPath: '/new/path',
-      debug: false
-    };
+  it('ConfigManager should read/write inside active project', () => {
+    ProjectManager.createProject('Foo');
 
-    writeFileSync(configFile, JSON.stringify(config, null, 2));
+    // config file path under project should exist after getConfig
+    const cfg = ConfigManager.getConfig();
+    expect(cfg.baseBranch).toBeDefined();
 
-    expect(existsSync(configFile)).toBe(true);
-    const loaded: ProjectConfig = JSON.parse(readFileSync(configFile, 'utf8'));
-    expect(loaded.projectPath).toBe('/new/path');
+    cfg.debug = true;
+    ConfigManager.saveConfig(cfg);
+
+    const reloaded = ConfigManager.getConfig();
+    expect(reloaded.debug).toBe(true);
+
+    // verify that another project has its own config file
+    ProjectManager.createProject('Bar');
+    const cfg2 = ConfigManager.getConfig();
+    expect(cfg2.debug).not.toBe(true);
   });
 
-  it('should handle debug mode in config', () => {
-    const config: ProjectConfig = {
-      debug: true
-    };
+  it('should migrate legacy root files into default project', () => {
+    // create legacy files in root autopilot directory
+    const root = ProjectManager.getAutopilotDir();
+    const cfgPath = join(root, 'config.json');
+    const ticketsPath = join(root, 'tickets.json');
+    // ensure clean
+    if (existsSync(cfgPath)) rmSync(cfgPath);
+    if (existsSync(ticketsPath)) rmSync(ticketsPath);
 
-    writeFileSync(configFile, JSON.stringify(config));
-    const loaded: ProjectConfig = JSON.parse(readFileSync(configFile, 'utf8'));
+    // write simple objects
+    fs.writeFileSync(cfgPath, JSON.stringify({ debug: true }));
+    fs.writeFileSync(ticketsPath, JSON.stringify({ tickets: [], lastId: 0 }));
 
-    expect(loaded.debug).toBe(true);
+    // listing projects should trigger migration
+    const projects = ProjectManager.listProjects();
+    expect(projects).toContain('default');
+    expect(ProjectManager.getActiveProject()).toBe('default');
+
+    // after migration the root files should be gone
+    expect(existsSync(cfgPath)).toBe(false);
+    expect(existsSync(ticketsPath)).toBe(false);
+
+    // the files should now exist under default project
+    const defaultDir = ProjectManager.getProjectDir('default');
+    expect(existsSync(join(defaultDir, 'config.json'))).toBe(true);
+    expect(existsSync(join(defaultDir, 'tickets.json'))).toBe(true);
   });
 
-  it('should store copilot model in config', () => {
-    const config: ProjectConfig = {
-      debug: false,
-      copilotModel: 'gpt-5'
-    };
-
-    writeFileSync(configFile, JSON.stringify(config));
-    const loaded: ProjectConfig = JSON.parse(readFileSync(configFile, 'utf8'));
-
-    expect(loaded.copilotModel).toBe('gpt-5');
-  });
-
-  it('should create default config structure', () => {
-    const config: ProjectConfig = {
-      debug: false
-    };
-
-    writeFileSync(configFile, JSON.stringify(config, null, 2));
-
-    expect(existsSync(configFile)).toBe(true);
-    const content = readFileSync(configFile, 'utf8');
-    expect(content).toContain('debug');
+  it('ConfigManager defaults include ticket types', () => {
+    ProjectManager.createProject('TypeCheck');
+    const types = ConfigManager.getTicketTypes();
+    expect(types.bug).toContain('BUG FIX');
+    expect(types.codeReview).toContain('CODE REVIEW');
   });
 });

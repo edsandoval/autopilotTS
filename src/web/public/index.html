@@ -126,10 +126,14 @@
         <button class="close-btn" onclick="app.hideCreateModal()">×</button>
       </div>
       <div class="modal-body">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+          <div id="clipboardExtractionStatus" class="extraction-status" style="display:none; padding:8px; border-radius:4px; background:#f3f3f3; color:#333; flex:1"></div>
+          <button id="cancelExtractionBtn" type="button" style="display:none;">Cancel</button>
+        </div>
         <form id="createForm" onsubmit="app.createTicket(event)">
           <div class="form-group">
-            <label for="ticketName">Ticket Name</label>
-            <input type="text" id="ticketName" required placeholder="e.g., Add login feature">
+            <label for="ticketId">Ticket ID</label>
+            <input type="text" id="ticketId" required placeholder="e.g., PROJ-123" autocomplete="off">
           </div>
           <div class="form-group">
             <label for="ticketDescription">Description</label>
@@ -167,6 +171,7 @@
           <div class="tab-buttons">
             <button type="button" class="tab-btn active" data-tab="general" onclick="app.showConfigTab('general')">General</button>
             <button type="button" class="tab-btn" data-tab="tipo" onclick="app.showConfigTab('tipo')">Ticket Types</button>
+            <button type="button" class="tab-btn" data-tab="clipboard" onclick="app.showConfigTab('clipboard')">Clipboard</button>
           </div>
 
             <div class="tab-panel">
@@ -331,6 +336,36 @@
                   <textarea id="ticketTypePrompt-refactor" rows="4" placeholder="Prompt for Refactor tickets"></textarea>
                 </div>
               </div>
+            </div>
+
+
+
+            <div class="tab-content" id="configTab-clipboard" style="display:none">
+
+              <div class="form-group">
+                <div class="label-with-help">
+                  <label for="clipboardEnableImageAnalysis" class="checkbox-label">
+                    <input type="checkbox" id="clipboardEnableImageAnalysis">
+                    Allow analyzing and extracting image data from clipboard
+                  </label>
+                  <span class="help-icon">
+                    i
+                    <span class="tooltip">When enabled, Autopilot will inspect the system clipboard for images when opening the New Ticket modal and attempt to extract ticket data using Copilot CLI.</span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="label-with-help">
+                  <label for="clipboardImagePrompt">Extraction Prompt</label>
+                  <span class="help-icon">
+                    i
+                    <span class="tooltip">Custom prompt used to extract ticket fields from clipboard images. Use $IMAGE_FILE to reference the temporary image file path.</span>
+                  </span>
+                </div>
+                <textarea id="clipboardImagePrompt" rows="8" placeholder="Enter prompt for extracting data from clipboard image"></textarea>
+              </div>
+
             </div>
 
         </div>

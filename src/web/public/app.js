@@ -514,15 +514,26 @@ class AutopilotApp {
   async createTicket(event) {
     event.preventDefault();
     
-    const name = document.getElementById('ticketName').value;
-    const description = document.getElementById('ticketDescription').value;
+    // Ticket ID must be provided
+    const ticketIdEl = document.getElementById('ticketId');
+    const id = ticketIdEl ? ticketIdEl.value.trim() : '';
+    const description = document.getElementById('ticketDescription').value.trim();
     const type = this.selectedTicketType;
+
+    if (!id) {
+      this.showError('Ticket ID is required');
+      return;
+    }
+    if (!description) {
+      this.showError('Description is required');
+      return;
+    }
     
     try {
       this.updateStatus('Creating ticket...');
       await this.apiCall('/tickets', {
         method: 'POST',
-        body: JSON.stringify({ name, description, type })
+        body: JSON.stringify({ name: id, description, type })
       });
       
       this.hideCreateModal();
@@ -716,6 +727,18 @@ class AutopilotApp {
       if (modelSelect && modelSelect.options.length > 0) {
         modelSelect.value = config.copilotModel || 'gpt-4o';
       }
+
+      // Clipboard settings
+      const clipboardEnabled = (config.clipboard && typeof config.clipboard.enableImageAnalysis !== 'undefined')
+        ? config.clipboard.enableImageAnalysis
+        : false;
+      const clipboardPrompt = (config.clipboard && config.clipboard.imagePrompt) || `Analyze this screenshot @$IMAGE_FILE. It is likely a capture from a project management tool such as Jira, Trello, GitHub Issues, Linear, or similar.\nExtract the following and respond ONLY in this exact format, nothing else:\nID: <ticket id, issue number, card key or the shortest unique identifier you can find. If none exists, generate a short slug from the title>\nDESCRIPTION: <full description of the task, bug or feature. Include acceptance criteria, steps to reproduce, or any relevant detail visible in the image. Be thorough.>\nTYPE: <one of: bug | feature | enhancement | refactor | code-review>\nIMPORTANT: If the image does not appear to be from a ticket management tool, or if you cannot confidently determine an ID or DESCRIPTION from it, respond exactly like this and nothing else:\nID:\nDESCRIPTION:\nTYPE:\n`;
+
+      const clipCheck = document.getElementById('clipboardEnableImageAnalysis');
+      if (clipCheck) clipCheck.checked = !!clipboardEnabled;
+      const clipPromptEl = document.getElementById('clipboardImagePrompt');
+      if (clipPromptEl) clipPromptEl.value = clipboardPrompt;
+
     } catch (error) {
       console.error('Failed to load config:', error);
     }
@@ -776,6 +799,10 @@ class AutopilotApp {
           feature: ticketTypes.feature || undefined,
           codeReview: ticketTypes.codeReview || undefined,
           refactor: ticketTypes.refactor || undefined
+        },
+        clipboard: {
+          enableImageAnalysis: document.getElementById('clipboardEnableImageAnalysis') ? !!document.getElementById('clipboardEnableImageAnalysis').checked : undefined,
+          imagePrompt: document.getElementById('clipboardImagePrompt') ? document.getElementById('clipboardImagePrompt').value : undefined
         }
       };
       
@@ -900,13 +927,144 @@ class AutopilotApp {
   }
 
   // Modal Management
-  showCreateModal() {
+  async showCreateModal() {
     this.closeAllModals();
     this.selectedTicketType = 'bug'; // Set default to bug
     document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.type === 'bug');
     });
     document.getElementById('createModal').classList.add('active');
+
+    // Ensure ID and Description inputs are editable and cleared
+    const ticketIdEl = document.getElementById('ticketId');
+    if (ticketIdEl) { ticketIdEl.disabled = false; ticketIdEl.readOnly = false; ticketIdEl.value = ''; }
+    const descEl = document.getElementById('ticketDescription');
+    if (descEl) { descEl.disabled = false; descEl.value = ''; }
+
+    // If clipboard extraction is enabled in config, attempt to extract image data
+    try {
+      const cfgRes = await this.apiCall('/config');
+      const cfg = cfgRes.config || {};
+      const clipboardCfg = cfg.clipboard || {};
+      const enabled = (typeof clipboardCfg.enableImageAnalysis === 'undefined') ? true : !!clipboardCfg.enableImageAnalysis;
+      const defaultPrompt = `Analyze this screenshot @$IMAGE_FILE. It is likely a capture from a project management tool such as Jira, Trello, GitHub Issues, Linear, or similar.\nExtract the following and respond ONLY in this exact format, nothing else:\nID: <ticket id, issue number, card key or the shortest unique identifier you can find. If none exists, generate a short slug from the title>\nDESCRIPTION: <full description of the task, bug or feature. Include acceptance criteria, steps to reproduce, or any relevant detail visible in the image. Be thorough.>\nTYPE: <one of: bug | feature | enhancement | refactor | code-review>\nIMPORTANT: If the image does not appear to be from a ticket management tool, or if you cannot confidently determine an ID or DESCRIPTION from it, respond exactly like this and nothing else:\nID:\nDESCRIPTION:\nTYPE:\n`;
+      const prompt = clipboardCfg.imagePrompt || defaultPrompt;
+
+      if (enabled && window.electronAPI && typeof window.electronAPI.extractClipboard === 'function') {
+        const statusEl = document.getElementById('clipboardExtractionStatus');
+        const createBtn = document.querySelector('#createModal button[type="submit"]');
+        const cancelBtn = document.getElementById('cancelExtractionBtn');
+
+        // helper to toggle create button based on inputs
+        const updateCreateButtonState = () => {
+          const idEl = document.getElementById('ticketId');
+          const descEl = document.getElementById('ticketDescription');
+          if (!createBtn) return;
+          if (idEl && descEl && idEl.value.trim() && descEl.value.trim()) createBtn.disabled = false;
+          else createBtn.disabled = true;
+        };
+
+        // attach input listeners so user can type and enable the create button
+        const idElForListeners = document.getElementById('ticketId');
+        const descElForListeners = document.getElementById('ticketDescription');
+        if (idElForListeners) idElForListeners.oninput = updateCreateButtonState;
+        if (descElForListeners) descElForListeners.oninput = updateCreateButtonState;
+
+        // Initialize button disabled state while we check the clipboard
+        if (createBtn) createBtn.disabled = true;
+
+        try {
+          if (statusEl) { statusEl.style.display = 'block'; statusEl.style.background = '#fff8c4'; statusEl.textContent = 'Checking clipboard for image...'; }
+          if (cancelBtn) { cancelBtn.style.display = 'inline-block'; cancelBtn.onclick = async () => {
+            // Cancel running extraction
+            try {
+              if (statusEl) statusEl.textContent = 'Cancelling extraction...';
+              const cres = await window.electronAPI.cancelExtractClipboard();
+              if (cres && cres.success) {
+                if (statusEl) { statusEl.style.background = '#f3f3f3'; statusEl.textContent = 'Extraction cancelled.'; }
+                if (this.writeToTerminal) this.writeToTerminal('Clipboard extraction cancelled by user', 'log');
+              } else {
+                if (statusEl) { statusEl.style.background = '#ffdede'; statusEl.textContent = 'Failed to cancel extraction.'; }
+                if (cres && cres.error && this.writeToTerminal) this.writeToTerminal(`Failed to cancel extraction: ${cres.error}`, 'error');
+              }
+              if (createBtn) createBtn.disabled = false;
+              if (cancelBtn) cancelBtn.style.display = 'none';
+            } catch (err) {
+              if (statusEl) { statusEl.style.background = '#ffdede'; statusEl.textContent = 'Error cancelling extraction.'; }
+              console.error('Cancel extraction failed', err);
+            }
+          } }
+
+          const r = await window.electronAPI.extractClipboard(prompt, 'gpt-4.1');
+
+          // hide cancel button when done
+          if (cancelBtn) cancelBtn.style.display = 'none';
+
+          if (r && r.noImage) {
+            if (statusEl) { statusEl.style.background = '#f3f3f3'; statusEl.textContent = 'No image found in clipboard.'; }
+            if (this.writeToTerminal) this.writeToTerminal('No image found in clipboard for extraction', 'log');
+            // re-enable create button so user can manually enter data
+            if (createBtn) createBtn.disabled = false;
+          } else if (r && r.success) {
+            if (statusEl) { statusEl.style.background = '#e6ffed'; statusEl.textContent = 'Extraction complete — populating fields.'; }
+            if (r.command && this.writeToTerminal) this.writeToTerminal(`Running: ${r.command}`, 'log');
+            if (r.output && this.writeToTerminal) this.writeToTerminal(r.output, 'log');
+
+            const parsed = r.parsed || this.extractClipboardFields(r.output || '');
+            if (parsed) {
+              this.applyClipboardExtraction(parsed);
+              updateCreateButtonState();
+            }
+          } else {
+            if (statusEl) { statusEl.style.background = '#ffdede'; statusEl.textContent = 'Extraction failed or returned no useful data.'; }
+            if (r && r.error && this.writeToTerminal) this.writeToTerminal(`Clipboard extraction error: ${r.error}`, 'error');
+            if (createBtn) createBtn.disabled = false;
+          }
+        } catch (err) {
+          if (statusEl) { statusEl.style.background = '#ffdede'; statusEl.textContent = 'Error during clipboard extraction.'; }
+          if (this.writeToTerminal) this.writeToTerminal(`Clipboard extraction exception: ${err.message || err}`, 'error');
+          console.error('Clipboard extraction failed', err);
+          if (createBtn) createBtn.disabled = false;
+          if (cancelBtn) cancelBtn.style.display = 'none';
+        }
+      }
+    } catch (err) {
+      console.error('Clipboard extraction failed', err);
+    }
+  }
+
+  extractClipboardFields(output) {
+    if (!output) return null;
+    const idMatch = output.match(/^ID:\s*(.*)$/im);
+    const typeMatch = output.match(/^TYPE:\s*(.*)$/im);
+    const descMatch = output.match(/DESCRIPTION:\s*([\s\S]*?)(?=\n[A-Z]+:\s|$)/im);
+    return {
+      id: idMatch && idMatch[1] ? idMatch[1].trim() : '',
+      description: descMatch && descMatch[1] ? descMatch[1].trim() : '',
+      type: typeMatch && typeMatch[1] ? typeMatch[1].trim().toLowerCase() : ''
+    };
+  }
+
+  applyClipboardExtraction(parsed) {
+    if (!parsed) return;
+    if (parsed.id) {
+      const idEl = document.getElementById('ticketId');
+      if (idEl) idEl.value = parsed.id;
+    }
+
+    if (parsed.description) {
+      const descEl = document.getElementById('ticketDescription');
+      if (descEl) descEl.value = parsed.description;
+    }
+
+    if (parsed.type) {
+      const map = { 'bug': 'bug', 'feature': 'feature', 'enhancement': 'enhancement', 'refactor': 'refactor', 'code-review': 'code-review', 'code review': 'code-review' };
+      const normalized = map[parsed.type] || parsed.type;
+      this.selectedTicketType = normalized;
+      document.querySelectorAll('#ticketTypeSelector .type-tag').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === this.selectedTicketType);
+      });
+    }
   }
 
   hideCreateModal() {

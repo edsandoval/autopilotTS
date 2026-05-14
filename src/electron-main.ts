@@ -1,5 +1,8 @@
-import { app, BrowserWindow, ipcMain, Menu, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, dialog, clipboard } from 'electron';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import { Storage } from './utils/storage.js';
@@ -52,6 +55,22 @@ function sendProgressUpdate(phase: string, current: number, total: number, curre
     percentage: Math.round(percentage),
     currentTicketId
   });
+}
+
+function parseClipboardCommandOutput(output: string) {
+  const result = { id: '', description: '', type: '' };
+  if (!output) return result;
+
+  const idMatch = output.match(/^ID:\s*(.*)$/mi);
+  if (idMatch && idMatch[1]) result.id = idMatch[1].trim();
+
+  const typeMatch = output.match(/^TYPE:\s*(.*)$/mi);
+  if (typeMatch && typeMatch[1]) result.type = typeMatch[1].trim();
+
+  const descMatch = output.match(/DESCRIPTION:\s*([\s\S]*?)(?=\n[A-Z]+:\s|$)/mi);
+  if (descMatch && descMatch[1]) result.description = descMatch[1].trim();
+
+  return result;
 }
 
 function createWindow() {
@@ -637,6 +656,96 @@ function setupIpcHandlers() {
       return { success: false, cancelled: true };
     }
     return { success: true, path: paths[0] };
+  });
+
+  // Track current clipboard extraction process so it can be cancelled
+  let currentClipboardExtractionProc: import('child_process').ChildProcess | null = null;
+
+  // Extract image from clipboard and run Copilot CLI prompt against it
+  ipcMain.handle('extract-clipboard', async (_event, promptText: string, model = 'gpt-4.1') => {
+    try {
+      const img = clipboard.readImage();
+      if (!img || img.isEmpty()) {
+        return { success: false, noImage: true };
+      }
+
+      const tmpDir = os.tmpdir();
+      const imagePath = path.join(tmpDir, `autopilot_clip_${Date.now()}.png`);
+      fs.writeFileSync(imagePath, img.toPNG());
+
+      // Replace placeholder with actual image path in prompt
+      const finalPrompt = (promptText || '').replace(/\$IMAGE_FILE/g, imagePath);
+
+      // Run copilot with inline prompt (escaped)
+      const safePrompt = finalPrompt.replace(/"/g, '\\"');
+      const command = `copilot -p "${safePrompt}" --model "${model}" --allow-all`;
+
+      // Verify image file exists before running
+      if (!fs.existsSync(imagePath)) {
+        console.log('[Clipboard] Image file missing before execution:', imagePath);
+        if (mainWindow) mainWindow.webContents.send('ticket-log', { message: `Image file missing: ${imagePath}`, type: 'error' });
+        try { if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); } catch (e) {}
+        return { success: false, error: 'Image file missing', imagePath };
+      }
+
+      // Log command to console and UI terminal
+      console.log('[Clipboard] Executing command:', command);
+      if (mainWindow) {
+        try { mainWindow.webContents.send('ticket-log', { message: `Running clipboard extraction: ${command}`, type: 'log' }); } catch (e) { /* ignore */ }
+      }
+
+      return await new Promise((resolve) => {
+        // Start child process and store reference for cancellation
+        currentClipboardExtractionProc = exec(command, { cwd: process.cwd(), maxBuffer: 40 * 1024 * 1024 }, (error, stdout, stderr) => {
+          // cleanup temp image
+          try { fs.unlinkSync(imagePath); } catch (e) {}
+
+          // Clear proc reference
+          currentClipboardExtractionProc = null;
+
+          if (error) {
+            console.log('[Clipboard] Command failed:', stderr || error.message);
+            resolve({
+              success: false,
+              error: stderr || error.message,
+              output: stdout,
+              command,
+              parsed: parseClipboardCommandOutput(stdout)
+            });
+          } else {
+            console.log('[Clipboard] Command completed');
+            resolve({
+              success: true,
+              output: stdout,
+              command,
+              parsed: parseClipboardCommandOutput(stdout)
+            });
+          }
+        });
+      });
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // Allow renderer to cancel a running clipboard extraction
+  ipcMain.handle('cancel-extract-clipboard', async () => {
+    try {
+      if (currentClipboardExtractionProc) {
+        try {
+          currentClipboardExtractionProc.kill();
+          currentClipboardExtractionProc = null;
+          console.log('[Clipboard] Extraction process killed by user');
+          if (mainWindow) mainWindow.webContents.send('ticket-log', { message: 'Clipboard extraction cancelled by user', type: 'log' });
+          return { success: true, cancelled: true };
+        } catch (e) {
+          return { success: false, error: (e as Error).message };
+        }
+      }
+      return { success: false, error: 'No extraction in progress' };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
 }
 

@@ -52,6 +52,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeAutopilotProgressListener: () => {
     ipcRenderer.removeAllListeners('autopilot:progress');
   },
+
+  // Clipboard extraction
+  extractClipboard: (prompt: string, model?: string) => ipcRenderer.invoke('extract-clipboard', prompt, model),
+  cancelExtractClipboard: () => ipcRenderer.invoke('cancel-extract-clipboard'),
 });
 
 // Type definitions for TypeScript
@@ -82,6 +86,8 @@ declare global {
       removeTicketLogListener: () => void;
       onAutopilotProgress: (callback: (data: any) => void) => void;
       removeAutopilotProgressListener: () => void;
+      extractClipboard: (prompt: string, model?: string) => Promise<{ success: boolean; output?: string; error?: string; noImage?: boolean; command?: string }>;
+      cancelExtractClipboard: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>;
     };
   }
 }
